@@ -1,0 +1,11 @@
+backend/.env
+backend/venv/
+frontend/.next/
+frontend/node_modules/
+frontend/.env
+frontend/.env.*
+**/__pycache__/
+*.py[cod]
+*.db
+backend/_sample.csv
+/package-lock.json

@@ -11,9 +11,9 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 import pandas as pd
 
-from database.session import engine, Base, get_db
-from database.models import AnalysisResult
-import services.ai_service as ai_service
+from backend.database.session import engine, Base, get_db
+from backend.database.models import AnalysisResult
+import backend.services.ai_service as ai_service
 
 # Create database tables
 Base.metadata.create_all(bind=engine)

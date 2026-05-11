@@ -4,7 +4,13 @@ import { useState, useEffect } from "react";
 import AuraHero from "@/components/ui/hero";
 import FileUpload from "@/components/FileUpload";
 import AnalysisDashboard from "@/components/AnalysisDashboard";
-import { AlertCircle, Loader, CheckCircle, History } from "lucide-react";
+import { AlertCircle, Loader, CheckCircle, History, ChevronLeft } from "lucide-react";
+
+const LIVE_AGENT_STEPS = [
+  "Data Custodian cleaning data...",
+  "Statistical Researcher identifying trends...",
+  "Business Reporter synthesizing insight...",
+];
 
 interface AnalysisData {
   id: number;
@@ -12,6 +18,16 @@ interface AnalysisData {
   summary: string;
   insights: string[];
   chart_data: Record<string, unknown>;
+  forecast_data?: {
+    available?: boolean;
+    method?: string;
+    date_column?: string;
+    target_column?: string;
+    horizon_days?: number;
+    points?: Array<{ date: string; value: number }>;
+    reason?: string;
+  } | null;
+  agent_status?: string[];
   created_at: string;
 }
 
@@ -22,6 +38,24 @@ export default function Home() {
   const [showAnalyzer, setShowAnalyzer] = useState(false);
   const [historyData, setHistoryData] = useState<AnalysisData[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [loadingStep, setLoadingStep] = useState(0);
+  const [liveAgentLog, setLiveAgentLog] = useState<string[]>(LIVE_AGENT_STEPS);
+
+  useEffect(() => {
+    if (!loading) {
+      setLoadingStep(0);
+      return;
+    }
+
+    setLoadingStep(0);
+    setLiveAgentLog(LIVE_AGENT_STEPS);
+
+    const interval = window.setInterval(() => {
+      setLoadingStep((current) => Math.min(current + 1, LIVE_AGENT_STEPS.length - 1));
+    }, 2200);
+
+    return () => window.clearInterval(interval);
+  }, [loading]);
 
   // Fetch analysis history
   const fetchHistory = async () => {
@@ -45,6 +79,8 @@ export default function Home() {
 
     setError("");
     setLoading(true);
+    setLoadingStep(0);
+    setLiveAgentLog(LIVE_AGENT_STEPS);
 
     const formData = new FormData();
     formData.append("file", file);
@@ -62,6 +98,7 @@ export default function Home() {
 
       const data: AnalysisData = await response.json();
       setAnalysisData(data);
+      setLiveAgentLog(data.agent_status?.length ? data.agent_status : LIVE_AGENT_STEPS);
       setError("");
 
       // Refresh history
@@ -88,6 +125,14 @@ export default function Home() {
     } catch (err) {
       setError("Could not load analysis record");
     }
+  };
+
+  // Handle back button - return to home
+  const handleGoBack = () => {
+    setAnalysisData(null);
+    setError("");
+    setShowAnalyzer(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   return (
@@ -153,14 +198,40 @@ export default function Home() {
               {/* Results Section */}
               <div className="lg:col-span-2">
                 {loading && (
-                  <div className="flex flex-col items-center justify-center rounded-lg border border-blue-500/30 bg-blue-500/10 py-16">
-                    <Loader className="mb-4 h-12 w-12 animate-spin text-blue-400" />
-                    <p className="text-lg text-slate-200">
-                      Analyzing your data with AI...
-                    </p>
-                    <p className="text-sm text-slate-400">
-                      This usually takes 10-30 seconds
-                    </p>
+                  <div className="space-y-4 rounded-lg border border-blue-500/30 bg-blue-500/10 p-6">
+                    <div className="flex flex-col items-center justify-center py-10 text-center">
+                      <Loader className="mb-4 h-12 w-12 animate-spin text-blue-400" />
+                      <p className="text-lg text-slate-200">
+                        Analyzing your data with AI...
+                      </p>
+                      <p className="text-sm text-slate-400">
+                        This usually takes 10-30 seconds
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-slate-700 bg-slate-900/80 p-4">
+                      <p className="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-400">
+                        Agent Status
+                      </p>
+                      <div className="space-y-2">
+                        {LIVE_AGENT_STEPS.map((step, index) => (
+                          <div
+                            key={step}
+                            className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${
+                              index <= loadingStep
+                                ? "bg-blue-500/10 text-blue-200"
+                                : "bg-slate-800/40 text-slate-500"
+                            }`}
+                          >
+                            <span
+                              className={`h-2.5 w-2.5 rounded-full ${
+                                index <= loadingStep ? "bg-blue-400" : "bg-slate-600"
+                              }`}
+                            />
+                            <span className="text-sm">{step}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -176,6 +247,13 @@ export default function Home() {
 
                 {analysisData && !loading && (
                   <div className="space-y-4">
+                    <button
+                      onClick={handleGoBack}
+                      className="flex items-center gap-2 rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 text-sm text-slate-200 transition-all hover:border-slate-400 hover:bg-slate-700"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Back to Home
+                    </button>
                     <div className="flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/10 p-4">
                       <CheckCircle className="h-5 w-5 text-green-400" />
                       <span className="text-sm text-green-300">
@@ -186,8 +264,25 @@ export default function Home() {
                       summary={analysisData.summary}
                       insights={analysisData.insights}
                       chartData={analysisData.chart_data}
+                      forecastData={analysisData.forecast_data}
                       filename={analysisData.filename}
                     />
+
+                    {(analysisData.agent_status?.length || liveAgentLog.length > 0) && (
+                      <div className="rounded-xl border border-slate-700 bg-slate-900/80 p-6">
+                        <p className="mb-4 text-sm font-semibold uppercase tracking-wider text-slate-400">
+                          Agent Status Log
+                        </p>
+                        <div className="space-y-2">
+                          {(analysisData.agent_status?.length ? analysisData.agent_status : liveAgentLog).map((message) => (
+                            <div key={message} className="flex items-center gap-3 rounded-lg bg-slate-800/60 px-3 py-2 text-sm text-slate-300">
+                              <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+                              <span>{message}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 

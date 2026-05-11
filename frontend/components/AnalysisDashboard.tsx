@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Lightbulb, TrendingUp, Database } from 'lucide-react';
 
 interface AnalysisDashboardProps {
@@ -17,6 +17,15 @@ interface AnalysisDashboardProps {
     insights: string[];
     chart_data: { labels: string[]; values: number[] };
   };
+  forecastData?: {
+    available?: boolean;
+    method?: string;
+    date_column?: string;
+    target_column?: string;
+    horizon_days?: number;
+    points?: Array<{ date: string; value: number }>;
+    reason?: string;
+  } | null;
   filename?: string;
 }
 
@@ -25,6 +34,7 @@ export default function AnalysisDashboard({
   insights,
   chartData,
   data,
+  forecastData,
   filename
 }: AnalysisDashboardProps) {
   // Support both old and new props
@@ -38,6 +48,22 @@ export default function AnalysisDashboard({
       name: label,
       value: (actualChartData.values as number[])?.[idx] || 0,
     })) || [];
+
+  const forecastPoints = forecastData?.available ? forecastData.points || [] : [];
+
+  // Combine historical and forecast data for proper scaling
+  const combinedTimeSeriesData = [
+    ...(mappedChartData.map((item: any) => ({
+      date: item.name,
+      value: item.value,
+      type: 'historical',
+    })) || []),
+    ...(forecastPoints.map((point: any) => ({
+      date: point.date,
+      value: point.value,
+      type: 'forecast',
+    })) || []),
+  ];
 
   return (
     <div className="w-full space-y-6">
@@ -125,6 +151,79 @@ export default function AnalysisDashboard({
                 />
               </BarChart>
             </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* Forecast Chart */}
+      {forecastData?.available && forecastPoints.length > 0 && (
+        <div className="rounded-xl border border-slate-700 bg-gradient-to-br from-slate-800 to-slate-900 p-6 shadow-lg">
+          <div className="mb-4 flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-emerald-400" />
+            <h2 className="text-xl font-bold text-white">7-Day Forecast</h2>
+          </div>
+          <div className="mb-3 text-sm text-slate-400">
+            {forecastData.method ? `Method: ${forecastData.method}` : 'Forecast generated from detected time-series data'}
+          </div>
+          <div className="h-96 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={combinedTimeSeriesData}
+                margin={{ top: 20, right: 30, left: 0, bottom: 40 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fill: '#cbd5e1', fontSize: 12 }}
+                  angle={-25}
+                  textAnchor="end"
+                  height={70}
+                />
+                <YAxis tick={{ fill: '#cbd5e1', fontSize: 12 }} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#1e293b',
+                    border: '1px solid #475569',
+                    borderRadius: '8px',
+                    color: '#f1f5f9',
+                  }}
+                  formatter={(value: any) => [value.toFixed(2), 'Value']}
+                />
+                <Legend wrapperStyle={{ paddingTop: '16px', color: '#cbd5e1' }} />
+                <Line
+                  type="monotone"
+                  dataKey="value"
+                  stroke="#10b981"
+                  strokeWidth={2.5}
+                  dot={(props: any) => {
+                    const { cx, cy, payload } = props;
+                    const isHistorical = payload.type === 'historical';
+                    return (
+                      <circle
+                        cx={cx}
+                        cy={cy}
+                        r={isHistorical ? 3 : 5}
+                        fill={isHistorical ? '#3b82f6' : '#10b981'}
+                        stroke={isHistorical ? '#1e40af' : '#059669'}
+                        strokeWidth={2}
+                      />
+                    );
+                  }}
+                  activeDot={{ r: 7 }}
+                  name="Sales Trend & Forecast"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="mt-4 flex gap-6 text-sm">
+            <div className="flex items-center gap-2">
+              <div className="h-3 w-3 rounded-full bg-blue-500" />
+              <span className="text-slate-400">Historical</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="h-3 w-3 rounded-full bg-emerald-500" />
+              <span className="text-slate-400">Forecast</span>
+            </div>
           </div>
         </div>
       )}

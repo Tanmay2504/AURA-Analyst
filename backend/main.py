@@ -3,12 +3,13 @@ load_dotenv()
 
 import io
 import json
-from typing import List, Optional
+from typing import List, Optional, Any
 from datetime import datetime
 from fastapi import FastAPI, File, UploadFile, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
+from sqlalchemy import inspect
 import pandas as pd
 
 from backend.database.session import engine, Base, get_db
@@ -17,6 +18,34 @@ import backend.services.ai_service as ai_service
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
+
+
+def _ensure_analysis_result_schema() -> None:
+    """Add missing columns for SQLite databases created before schema expansion."""
+    if engine.dialect.name != "sqlite":
+        return
+
+    inspector = inspect(engine)
+    existing_tables = inspector.get_table_names()
+    if "analysis_results" not in existing_tables:
+        return
+
+    existing_columns = {column["name"] for column in inspector.get_columns("analysis_results")}
+    column_definitions = {
+        "forecast_data": "TEXT",
+        "agent_status": "TEXT",
+        "raw_csv": "BLOB",
+    }
+
+    with engine.begin() as connection:
+        for column_name, column_type in column_definitions.items():
+            if column_name not in existing_columns:
+                connection.exec_driver_sql(
+                    f"ALTER TABLE analysis_results ADD COLUMN {column_name} {column_type}"
+                )
+
+
+_ensure_analysis_result_schema()
 
 app = FastAPI(
     title="AURA Analyst API",
@@ -49,6 +78,8 @@ class AnalysisResponse(BaseModel):
     summary: str
     insights: List[str]
     chart_data: dict
+    forecast_data: Optional[dict] = None
+    agent_status: List[str] = Field(default_factory=list)
     created_at: datetime
 
     class Config:
@@ -57,6 +88,37 @@ class AnalysisResponse(BaseModel):
 class HistoryResponse(BaseModel):
     records: List[AnalysisResponse]
     total: int
+
+
+def _parse_json_value(value: Any, default: Any):
+    if value is None:
+        return default
+    if isinstance(value, (dict, list)):
+        return value
+    if isinstance(value, (bytes, bytearray)):
+        try:
+            return json.loads(value.decode("utf-8"))
+        except Exception:
+            return default
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except Exception:
+            return default
+    return value
+
+
+def _serialize_analysis_record(record: AnalysisResult) -> AnalysisResponse:
+    return AnalysisResponse(
+        id=record.id,
+        filename=record.filename,
+        summary=record.summary,
+        insights=_parse_json_value(record.insights, []),
+        chart_data=_parse_json_value(record.chart_data, {}),
+        forecast_data=_parse_json_value(getattr(record, "forecast_data", None), None),
+        agent_status=_parse_json_value(getattr(record, "agent_status", None), []),
+        created_at=record.created_at,
+    )
 
 # ============================================================================
 # TIER 1: API Layer - Health Check
@@ -106,35 +168,27 @@ async def analyze_csv(file: UploadFile = File(...), db: Session = Depends(get_db
     # TIER 3: Persistence Layer - Database Integration
     # ========================================================================
     try:
-        # Ensure insights and chart_data are valid JSON
-        insights = analysis_result.get("insights", [])
-        if isinstance(insights, str):
-            insights = json.loads(insights)
-        
-        chart_data = analysis_result.get("chart_data", {})
-        if isinstance(chart_data, str):
-            chart_data = json.loads(chart_data)
+        insights = _parse_json_value(analysis_result.get("insights", []), [])
+        chart_data = _parse_json_value(analysis_result.get("chart_data", {}), {})
+        forecast_data = _parse_json_value(analysis_result.get("forecast_data", None), None)
+        agent_status = _parse_json_value(analysis_result.get("agent_status", []), [])
 
         # Create and save analysis record
         result_record = AnalysisResult(
             filename=file.filename,
             summary=analysis_result.get("summary", "No summary available"),
-            insights=json.dumps(insights),
-            chart_data=json.dumps(chart_data),
+            insights=insights,
+            chart_data=chart_data,
+            forecast_data=forecast_data,
+            agent_status=agent_status,
+            raw_csv=contents,
             created_at=datetime.utcnow()
         )
         db.add(result_record)
         db.commit()
         db.refresh(result_record)
 
-        return AnalysisResponse(
-            id=result_record.id,
-            filename=result_record.filename,
-            summary=result_record.summary,
-            insights=json.loads(result_record.insights),
-            chart_data=json.loads(result_record.chart_data),
-            created_at=result_record.created_at
-        )
+        return _serialize_analysis_record(result_record)
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database Error: {str(e)}")
@@ -164,17 +218,7 @@ async def get_analysis_history(
         total = db.query(AnalysisResult).count()
 
         # Convert records to response models
-        analysis_records = [
-            AnalysisResponse(
-                id=record.id,
-                filename=record.filename,
-                summary=record.summary,
-                insights=json.loads(record.insights),
-                chart_data=json.loads(record.chart_data),
-                created_at=record.created_at
-            )
-            for record in records
-        ]
+        analysis_records = [_serialize_analysis_record(record) for record in records]
 
         return HistoryResponse(records=analysis_records, total=total)
     except Exception as e:
@@ -195,14 +239,7 @@ async def get_analysis_detail(analysis_id: int, db: Session = Depends(get_db)):
         if not record:
             raise HTTPException(status_code=404, detail="Analysis record not found")
 
-        return AnalysisResponse(
-            id=record.id,
-            filename=record.filename,
-            summary=record.summary,
-            insights=json.loads(record.insights),
-            chart_data=json.loads(record.chart_data),
-            created_at=record.created_at
-        )
+        return _serialize_analysis_record(record)
     except HTTPException:
         raise
     except Exception as e:

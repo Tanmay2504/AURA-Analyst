@@ -6,3 +6,5 @@ pandas
 sqlalchemy
 pydantic
 google-generativeai
+scikit-learn
+statsmodels

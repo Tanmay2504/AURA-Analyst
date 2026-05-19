@@ -13,6 +13,7 @@ class AnalysisResult(Base):
     insights = Column(JSON, nullable=True)
     chart_data = Column(JSON, nullable=True)
     forecast_data = Column(JSON, nullable=True)
+    analysis_metadata = Column(JSON, nullable=True)
     agent_status = Column(JSON, nullable=True)
     # Optionally store the raw CSV bytes for full reproducibility
     raw_csv = Column(LargeBinary, nullable=True)

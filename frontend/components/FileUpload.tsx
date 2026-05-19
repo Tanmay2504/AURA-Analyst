@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useCallback, useState } from 'react';
-import { Upload, File } from 'lucide-react';
+import { Upload, File as FileIcon } from 'lucide-react';
 
 interface FileUploadProps {
-  onFileSelect?: (file: File) => void;
-  onAnalyze?: (file: File) => void;
+  onFileSelect?: (files: File[]) => void;
+  onAnalyze?: (files: File[]) => void;
   isLoading?: boolean;
   disabled?: boolean;
 }
@@ -16,14 +16,14 @@ export default function FileUpload({
   isLoading = false,
   disabled = false 
 }: FileUploadProps) {
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [dragActive, setDragActive] = useState(false);
 
-  const handleCallback = (f: File) => {
+  const handleCallback = (selectedFiles: File[]) => {
     if (onFileSelect) {
-      onFileSelect(f);
+      onFileSelect(selectedFiles);
     } else if (onAnalyze) {
-      onAnalyze(f);
+      onAnalyze(selectedFiles);
     }
   };
 
@@ -44,20 +44,22 @@ export default function FileUpload({
     e.stopPropagation();
     setDragActive(false);
 
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const droppedFile = e.dataTransfer.files[0];
-      if (droppedFile.name.endsWith('.csv')) {
-        setFile(droppedFile);
-        handleCallback(droppedFile);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const droppedFiles = Array.from(e.dataTransfer.files).filter((droppedFile) => droppedFile.name.endsWith('.csv'));
+      if (droppedFiles.length > 0) {
+        setFiles(droppedFiles);
+        handleCallback(droppedFiles);
       }
     }
   }, []);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const selectedFile = e.target.files[0];
-      setFile(selectedFile);
-      handleCallback(selectedFile);
+    if (e.target.files && e.target.files.length > 0) {
+      const selectedFiles = Array.from(e.target.files).filter((selectedFile) => selectedFile.name.endsWith('.csv'));
+      if (selectedFiles.length > 0) {
+        setFiles(selectedFiles);
+        handleCallback(selectedFiles);
+      }
     }
   };
 
@@ -78,36 +80,41 @@ export default function FileUpload({
           id="file-upload"
           type="file"
           accept=".csv"
+          multiple
           className="hidden"
           onChange={handleFileSelect}
           disabled={disabled || isLoading}
         />
 
         <div className="flex flex-col items-center justify-center text-center">
-          {file ? (
+          {files.length > 0 ? (
             <>
-              <File className="mb-3 h-12 w-12 text-blue-400" />
-              <p className="text-lg font-semibold text-white">{file.name}</p>
-              <p className="text-sm text-slate-400">
-                {(file.size / 1024).toFixed(2)} KB
+              <FileIcon className="mb-3 h-12 w-12 text-blue-400" />
+              <p className="text-lg font-semibold text-white">
+                {files.length === 1 ? files[0].name : `${files.length} CSV files selected`}
               </p>
-              <p className="mt-2 text-xs text-blue-400">Click to change file</p>
+              <p className="text-sm text-slate-400">
+                {files.length === 1
+                  ? `${(files[0].size / 1024).toFixed(2)} KB`
+                  : 'Ready for cross-file analysis'}
+              </p>
+              <p className="mt-2 text-xs text-blue-400">Click to change files</p>
             </>
           ) : (
             <>
               <Upload className="mb-3 h-12 w-12 text-slate-400" />
               <p className="text-lg font-semibold text-white">
-                Drag & drop your CSV file
+                Drag & drop one or more CSV files
               </p>
               <p className="mt-1 text-sm text-slate-400">
-                or click to browse
+                or click to browse and compare files together
               </p>
             </>
           )}
         </div>
       </div>
 
-      {file && (
+      {files.length > 0 && (
         <button
           className={`mt-4 w-full rounded-lg px-6 py-3 font-semibold transition-all duration-300 ${
             isLoading || disabled
@@ -141,7 +148,7 @@ export default function FileUpload({
               Analyzing...
             </span>
           ) : (
-            'Generate AI Insights'
+            files.length > 1 ? 'Generate Multi-File Insights' : 'Generate AI Insights'
           )}
         </button>
       )}

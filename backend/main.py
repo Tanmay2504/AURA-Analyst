@@ -33,6 +33,7 @@ def _ensure_analysis_result_schema() -> None:
     existing_columns = {column["name"] for column in inspector.get_columns("analysis_results")}
     column_definitions = {
         "forecast_data": "TEXT",
+        "analysis_metadata": "TEXT",
         "agent_status": "TEXT",
         "raw_csv": "BLOB",
     }
@@ -79,8 +80,28 @@ class AnalysisResponse(BaseModel):
     insights: List[str]
     chart_data: dict
     forecast_data: Optional[dict] = None
+    analysis_metadata: Optional[dict] = None
     agent_status: List[str] = Field(default_factory=list)
     created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class BatchConnectionsResponse(BaseModel):
+    summary: str
+    shared_patterns: List[str] = Field(default_factory=list)
+    key_differences: List[str] = Field(default_factory=list)
+    recommended_storyline: str = ""
+    insight_connections: List[str] = Field(default_factory=list)
+
+    class Config:
+        from_attributes = True
+
+class BatchAnalysisResponse(BaseModel):
+    total_files: int
+    datasets: List[AnalysisResponse]
+    connections: BatchConnectionsResponse
+    metadata: dict
 
     class Config:
         from_attributes = True
@@ -116,9 +137,40 @@ def _serialize_analysis_record(record: AnalysisResult) -> AnalysisResponse:
         insights=_parse_json_value(record.insights, []),
         chart_data=_parse_json_value(record.chart_data, {}),
         forecast_data=_parse_json_value(getattr(record, "forecast_data", None), None),
+        analysis_metadata=_parse_json_value(getattr(record, "analysis_metadata", None), None),
         agent_status=_parse_json_value(getattr(record, "agent_status", None), []),
         created_at=record.created_at,
     )
+
+
+def _save_analysis_result(
+    db: Session,
+    file: UploadFile,
+    contents: bytes,
+    analysis_result: dict,
+) -> AnalysisResponse:
+    insights = _parse_json_value(analysis_result.get("insights", []), [])
+    chart_data = _parse_json_value(analysis_result.get("chart_data", {}), {})
+    forecast_data = _parse_json_value(analysis_result.get("forecast_data", None), None)
+    analysis_metadata = _parse_json_value(analysis_result.get("analysis_metadata", None), None)
+    agent_status = _parse_json_value(analysis_result.get("agent_status", []), [])
+
+    result_record = AnalysisResult(
+        filename=file.filename,
+        summary=analysis_result.get("summary", "No summary available"),
+        insights=insights,
+        chart_data=chart_data,
+        forecast_data=forecast_data,
+        analysis_metadata=analysis_metadata,
+        agent_status=agent_status,
+        raw_csv=contents,
+        created_at=datetime.utcnow(),
+    )
+    db.add(result_record)
+    db.commit()
+    db.refresh(result_record)
+
+    return _serialize_analysis_record(result_record)
 
 # ============================================================================
 # TIER 1: API Layer - Health Check
@@ -168,30 +220,79 @@ async def analyze_csv(file: UploadFile = File(...), db: Session = Depends(get_db
     # TIER 3: Persistence Layer - Database Integration
     # ========================================================================
     try:
-        insights = _parse_json_value(analysis_result.get("insights", []), [])
-        chart_data = _parse_json_value(analysis_result.get("chart_data", {}), {})
-        forecast_data = _parse_json_value(analysis_result.get("forecast_data", None), None)
-        agent_status = _parse_json_value(analysis_result.get("agent_status", []), [])
-
-        # Create and save analysis record
-        result_record = AnalysisResult(
-            filename=file.filename,
-            summary=analysis_result.get("summary", "No summary available"),
-            insights=insights,
-            chart_data=chart_data,
-            forecast_data=forecast_data,
-            agent_status=agent_status,
-            raw_csv=contents,
-            created_at=datetime.utcnow()
-        )
-        db.add(result_record)
-        db.commit()
-        db.refresh(result_record)
-
-        return _serialize_analysis_record(result_record)
+        return _save_analysis_result(db, file, contents, analysis_result)
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database Error: {str(e)}")
+
+
+@app.post("/analyze/batch", response_model=BatchAnalysisResponse)
+async def analyze_csv_batch(files: List[UploadFile] = File(...), db: Session = Depends(get_db)):
+    """
+    Endpoint: POST /analyze/batch
+    Purpose: Analyze multiple CSV files and generate cross-dataset insights
+    Persistence: Saves each analysis independently and returns a combined AI connection summary
+    """
+    if not files:
+        raise HTTPException(status_code=400, detail="Please upload at least one CSV file.")
+
+    analysis_packets: List[dict] = []
+    saved_records: List[AnalysisResponse] = []
+
+    try:
+        for file in files:
+            if not file.filename.endswith(".csv"):
+                raise HTTPException(status_code=400, detail=f"Only CSV files are allowed. Invalid file: {file.filename}")
+
+            contents = await file.read()
+            try:
+                df = pd.read_csv(io.BytesIO(contents))
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"Error reading CSV {file.filename}: {str(e)}")
+
+            analysis_result = ai_service.analyze_dataframe_locally(df, fast=True, include_forecast=False)
+
+            saved_record = _save_analysis_result(db, file, contents, analysis_result)
+            saved_records.append(saved_record)
+
+            analysis_packets.append(
+                {
+                    "filename": saved_record.filename,
+                    "summary": saved_record.summary,
+                    "insights": saved_record.insights,
+                    "chart_data": saved_record.chart_data,
+                    "forecast_data": saved_record.forecast_data,
+                    "analysis_metadata": saved_record.analysis_metadata,
+                }
+            )
+
+        connections = ai_service.compare_datasets_with_gemini(analysis_packets)
+        metadata = {
+            "file_count": len(saved_records),
+            "filenames": [record.filename for record in saved_records],
+            "dataset_types": [
+                (record.analysis_metadata or {}).get("dataset_type", "unknown") for record in saved_records
+            ],
+        }
+
+        return BatchAnalysisResponse(
+            total_files=len(saved_records),
+            datasets=saved_records,
+            connections=BatchConnectionsResponse(
+                summary=connections.get("summary", "No connection summary available."),
+                shared_patterns=connections.get("shared_patterns", []),
+                key_differences=connections.get("key_differences", []),
+                recommended_storyline=connections.get("recommended_storyline", ""),
+                insight_connections=connections.get("insight_connections", []),
+            ),
+            metadata=metadata,
+        )
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Batch analysis error: {str(e)}")
 
 # ============================================================================
 # TIER 2: Business Logic Layer - History Retrieval

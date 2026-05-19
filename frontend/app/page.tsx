@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import AuraHero from "@/components/ui/hero";
 import FileUpload from "@/components/FileUpload";
 import AnalysisDashboard from "@/components/AnalysisDashboard";
-import { AlertCircle, Loader, CheckCircle, History, ChevronLeft } from "lucide-react";
+import { AlertCircle, Loader, CheckCircle, History, Home as HomeIcon } from "lucide-react";
 
 const LIVE_AGENT_STEPS = [
   "Data Custodian cleaning data...",
@@ -27,12 +27,42 @@ interface AnalysisData {
     points?: Array<{ date: string; value: number }>;
     reason?: string;
   } | null;
+  analysis_metadata?: {
+    dataset_type?: string;
+    date_column?: string | null;
+    target_column?: string | null;
+    category_column?: string | null;
+    chart_title?: string;
+    series_label?: string;
+    rows?: number;
+    columns?: number;
+  } | null;
   agent_status?: string[];
   created_at: string;
 }
 
+interface BatchConnections {
+  summary: string;
+  shared_patterns: string[];
+  key_differences: string[];
+  recommended_storyline: string;
+  insight_connections: string[];
+}
+
+interface BatchAnalysisData {
+  total_files: number;
+  datasets: AnalysisData[];
+  connections: BatchConnections;
+  metadata: {
+    file_count?: number;
+    filenames?: string[];
+    dataset_types?: string[];
+  };
+}
+
 export default function Home() {
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
+  const [batchAnalysisData, setBatchAnalysisData] = useState<BatchAnalysisData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showAnalyzer, setShowAnalyzer] = useState(false);
@@ -71,9 +101,12 @@ export default function Home() {
   };
 
   // Handle file analysis
-  const handleAnalyze = async (file: File) => {
-    if (!file.name.endsWith(".csv")) {
-      setError("Please upload a CSV file");
+  const handleAnalyze = async (selectedFiles: File | File[]) => {
+    const files = Array.isArray(selectedFiles) ? selectedFiles : [selectedFiles];
+    const csvFiles = files.filter((file) => file.name.endsWith(".csv"));
+
+    if (csvFiles.length === 0) {
+      setError("Please upload at least one CSV file");
       return;
     }
 
@@ -81,12 +114,20 @@ export default function Home() {
     setLoading(true);
     setLoadingStep(0);
     setLiveAgentLog(LIVE_AGENT_STEPS);
+    setAnalysisData(null);
+    setBatchAnalysisData(null);
 
     const formData = new FormData();
-    formData.append("file", file);
+    const isBatch = csvFiles.length > 1;
+    if (isBatch) {
+      csvFiles.forEach((file) => formData.append("files", file));
+    } else {
+      formData.append("file", csvFiles[0]);
+    }
 
     try {
-      const response = await fetch("http://localhost:8000/analyze", {
+      const endpoint = isBatch ? "http://localhost:8000/analyze/batch" : "http://localhost:8000/analyze";
+      const response = await fetch(endpoint, {
         method: "POST",
         body: formData,
       });
@@ -96,9 +137,14 @@ export default function Home() {
         throw new Error(errorData.detail || "Analysis failed");
       }
 
-      const data: AnalysisData = await response.json();
-      setAnalysisData(data);
-      setLiveAgentLog(data.agent_status?.length ? data.agent_status : LIVE_AGENT_STEPS);
+      const data = await response.json();
+      if (isBatch) {
+        setBatchAnalysisData(data as BatchAnalysisData);
+      } else {
+        const singleData = data as AnalysisData;
+        setAnalysisData(singleData);
+        setLiveAgentLog(singleData.agent_status?.length ? singleData.agent_status : LIVE_AGENT_STEPS);
+      }
       setError("");
 
       // Refresh history
@@ -108,6 +154,7 @@ export default function Home() {
         err instanceof Error ? err.message : "An unexpected error occurred"
       );
       setAnalysisData(null);
+      setBatchAnalysisData(null);
     } finally {
       setLoading(false);
     }
@@ -127,10 +174,11 @@ export default function Home() {
     }
   };
 
-  // Handle back button - return to home
-  const handleGoBack = () => {
+  const handleGoHome = () => {
     setAnalysisData(null);
+    setBatchAnalysisData(null);
     setError("");
+    setShowHistory(false);
     setShowAnalyzer(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -163,13 +211,22 @@ export default function Home() {
               showAnalyzer ? "block" : "hidden"
             }`}
           >
-            <div className="mb-8">
-              <h2 className="mb-2 text-4xl font-bold text-white">
-                Analyze Your Data
-              </h2>
-              <p className="text-slate-400">
-                Upload a CSV file to get instant AI-powered insights and visualizations
-              </p>
+            <div className="mb-8 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="mb-2 text-4xl font-bold text-white">
+                  Analyze Your Data
+                </h2>
+                <p className="text-slate-400">
+                  Upload a CSV file to get instant AI-powered insights and visualizations
+                </p>
+              </div>
+              <button
+                onClick={handleGoHome}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 text-sm text-slate-200 transition-all hover:border-slate-400 hover:bg-slate-700"
+              >
+                <HomeIcon className="h-4 w-4" />
+                Home
+              </button>
             </div>
 
             {/* Upload Section */}
@@ -245,15 +302,114 @@ export default function Home() {
                   </div>
                 )}
 
-                {analysisData && !loading && (
+                {batchAnalysisData && !loading && (
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 p-4">
+                      <CheckCircle className="h-5 w-5 text-cyan-400" />
+                      <span className="text-sm text-cyan-300">
+                        Multi-file analysis complete for {batchAnalysisData.total_files} CSV files. Each file was analyzed locally first, then Gemini connected the findings.
+                      </span>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-700 bg-slate-900/80 p-6">
+                      <div className="mb-4 flex items-center justify-between gap-4">
+                        <div>
+                          <h3 className="text-2xl font-bold text-white">Cross-File AI Connections</h3>
+                          <p className="text-sm text-slate-400">
+                            Gemini synthesized how these datasets relate to each other.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="rounded-lg border border-slate-700 bg-slate-800/60 p-4">
+                          <p className="mb-2 text-sm font-semibold uppercase tracking-wider text-slate-400">
+                            Executive Summary
+                          </p>
+                          <p className="text-slate-200">{batchAnalysisData.connections.summary}</p>
+                        </div>
+
+                        {batchAnalysisData.connections.recommended_storyline && (
+                          <div className="rounded-lg border border-slate-700 bg-slate-800/60 p-4">
+                            <p className="mb-2 text-sm font-semibold uppercase tracking-wider text-slate-400">
+                              Recommended Storyline
+                            </p>
+                            <p className="text-slate-200">{batchAnalysisData.connections.recommended_storyline}</p>
+                          </div>
+                        )}
+
+                        {batchAnalysisData.connections.shared_patterns.length > 0 && (
+                          <div>
+                            <p className="mb-2 text-sm font-semibold uppercase tracking-wider text-slate-400">
+                              Shared Patterns
+                            </p>
+                            <ul className="space-y-2">
+                              {batchAnalysisData.connections.shared_patterns.map((item) => (
+                                <li key={item} className="rounded-lg bg-slate-800/50 px-4 py-3 text-slate-300">
+                                  {item}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {batchAnalysisData.connections.key_differences.length > 0 && (
+                          <div>
+                            <p className="mb-2 text-sm font-semibold uppercase tracking-wider text-slate-400">
+                              Key Differences
+                            </p>
+                            <ul className="space-y-2">
+                              {batchAnalysisData.connections.key_differences.map((item) => (
+                                <li key={item} className="rounded-lg bg-slate-800/50 px-4 py-3 text-slate-300">
+                                  {item}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {batchAnalysisData.connections.insight_connections.length > 0 && (
+                          <div>
+                            <p className="mb-2 text-sm font-semibold uppercase tracking-wider text-slate-400">
+                              Insight Connections
+                            </p>
+                            <ul className="space-y-2">
+                              {batchAnalysisData.connections.insight_connections.map((item) => (
+                                <li key={item} className="rounded-lg bg-slate-800/50 px-4 py-3 text-slate-300">
+                                  {item}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-6">
+                      {batchAnalysisData.datasets.map((dataset) => (
+                        <div key={dataset.id} className="rounded-xl border border-slate-700 bg-slate-900/80 p-4">
+                          <div className="mb-4 rounded-lg border border-slate-700 bg-slate-800/60 p-4">
+                            <p className="mb-2 text-sm font-semibold uppercase tracking-wider text-slate-400">
+                              Executive Summary - {dataset.filename}
+                            </p>
+                            <p className="text-slate-200">{dataset.summary}</p>
+                          </div>
+                          <AnalysisDashboard
+                            summary={dataset.summary}
+                            insights={dataset.insights}
+                            chartData={dataset.chart_data}
+                            forecastData={dataset.forecast_data}
+                            analysisMetadata={dataset.analysis_metadata}
+                            filename={dataset.filename}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {analysisData && !loading && !batchAnalysisData && (
                   <div className="space-y-4">
-                    <button
-                      onClick={handleGoBack}
-                      className="flex items-center gap-2 rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 text-sm text-slate-200 transition-all hover:border-slate-400 hover:bg-slate-700"
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                      Back to Home
-                    </button>
                     <div className="flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/10 p-4">
                       <CheckCircle className="h-5 w-5 text-green-400" />
                       <span className="text-sm text-green-300">
@@ -265,6 +421,7 @@ export default function Home() {
                       insights={analysisData.insights}
                       chartData={analysisData.chart_data}
                       forecastData={analysisData.forecast_data}
+                      analysisMetadata={analysisData.analysis_metadata}
                       filename={analysisData.filename}
                     />
 

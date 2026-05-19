@@ -135,6 +135,7 @@ export default function AuraHero() {
               </Link>
               <Link
                 href="#features"
+                onClick={(event) => event.stopPropagation()}
                 className="group inline-flex items-center justify-center gap-2 rounded-full border border-slate-600 px-8 py-4 font-semibold text-slate-200 transition-all duration-300 hover:border-purple-400 hover:text-white"
               >
                 Learn More
@@ -235,6 +236,7 @@ export default function AuraHero() {
             </p>
             <Link
               href="#analyzer"
+              onClick={(event) => event.stopPropagation()}
               className="inline-block rounded-full bg-blue-600 px-8 py-3 font-semibold text-white transition-all hover:bg-blue-700 hover:shadow-[0_0_20px_rgba(59,130,246,0.5)]"
             >
               Start Free Analysis
@@ -248,7 +250,7 @@ export default function AuraHero() {
         <div className="container mx-auto max-w-7xl">
           <div className="text-center text-slate-400">
             <p>
-              AURA Analyst © 2024. Powered by{" "}
+              AURA Analyst © 2026. Powered by{" "}
               <span className="text-blue-400">Gemini AI</span> and built for modern data teams.
             </p>
           </div>

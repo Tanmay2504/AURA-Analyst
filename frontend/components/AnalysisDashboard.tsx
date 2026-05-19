@@ -26,6 +26,16 @@ interface AnalysisDashboardProps {
     points?: Array<{ date: string; value: number }>;
     reason?: string;
   } | null;
+  analysisMetadata?: {
+    dataset_type?: string;
+    date_column?: string | null;
+    target_column?: string | null;
+    category_column?: string | null;
+    chart_title?: string;
+    series_label?: string;
+    rows?: number;
+    columns?: number;
+  } | null;
   filename?: string;
 }
 
@@ -35,6 +45,7 @@ export default function AnalysisDashboard({
   chartData,
   data,
   forecastData,
+  analysisMetadata,
   filename
 }: AnalysisDashboardProps) {
   // Support both old and new props
@@ -42,12 +53,56 @@ export default function AnalysisDashboard({
   const actualInsights = insights || data?.insights || [];
   const actualChartData = chartData || data?.chart_data;
 
+  // Helpers: detect dates, parse, format numbers, infer label
+  const isDateString = (s: string) => {
+    // basic ISO / YYYY-MM-DD / MM/DD/YYYY checks
+    if (!s) return false;
+    // Try Date parse — if Invalid Date then treat as non-date
+    const d = new Date(s);
+    return !Number.isNaN(d.getTime());
+  };
+
+  const parseDate = (s: string) => {
+    const d = new Date(s);
+    return d;
+  };
+
+  const numberFormatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
+
+  const inferSeriesLabel = () => {
+    // Priority: forecastData.target_column -> filename keywords -> sample label keywords
+    if (forecastData?.target_column) return forecastData.target_column.replace(/_/g, ' ');
+    if (filename) {
+      const name = filename.toLowerCase();
+      if (name.includes('covid') || name.includes('cases') || name.includes('confirmed')) return 'COVID Cases';
+      if (name.includes('death')) return 'COVID Deaths';
+      if (name.includes('vacc') || name.includes('vax')) return 'Vaccinations';
+      if (name.includes('sales') || name.includes('revenue')) return 'Sales';
+    }
+    // fallback: scan labels for keywords
+    const sampleLabels = actualChartData?.labels || [];
+    const joined = sampleLabels.join(' ').toLowerCase();
+    if (joined.includes('case') || joined.includes('confirmed')) return 'COVID Cases';
+    if (joined.includes('death')) return 'Deaths';
+    if (joined.includes('sales') || joined.includes('revenue')) return 'Sales';
+    return 'Value';
+  };
+
   // Map chart_data to recharts format
-  const mappedChartData =
+  let mappedChartData =
     actualChartData?.labels?.map((label: string, idx: number) => ({
       name: label,
-      value: (actualChartData.values as number[])?.[idx] || 0,
+      value: (actualChartData.values as number[])?.[idx] ?? 0,
     })) || [];
+
+  // If labels look like dates, sort chronologically to avoid mis-ordered time-series
+  const labelsAreDates = mappedChartData.length > 0 && mappedChartData.every((r) => isDateString(r.name));
+  if (labelsAreDates) {
+    mappedChartData = mappedChartData
+      .map((r) => ({ ...r, __parsedDate: parseDate(r.name) }))
+      .sort((a: any, b: any) => (a.__parsedDate as Date).getTime() - (b.__parsedDate as Date).getTime())
+      .map((r) => ({ name: r.name, value: r.value }));
+  }
 
   const forecastPoints = forecastData?.available ? forecastData.points || [] : [];
 
@@ -64,6 +119,19 @@ export default function AnalysisDashboard({
       type: 'forecast',
     })) || []),
   ];
+
+  const seriesLabel = analysisMetadata?.series_label || inferSeriesLabel();
+  const chartTitle = analysisMetadata?.chart_title || 'Data Visualization';
+  const forecastTitle = analysisMetadata?.series_label
+    ? `${analysisMetadata.series_label} Trend & Forecast`
+    : `${seriesLabel} Trend & Forecast`;
+
+  const tooltipFormatter = (value: any) => {
+    if (value == null) return ['—', seriesLabel];
+    const num = Number(value);
+    if (Number.isInteger(num)) return [numberFormatter.format(num), seriesLabel];
+    return [numberFormatter.format(num), seriesLabel];
+  };
 
   return (
     <div className="w-full space-y-6">
@@ -111,7 +179,7 @@ export default function AnalysisDashboard({
         <div className="rounded-xl border border-slate-700 bg-gradient-to-br from-slate-800 to-slate-900 p-6 shadow-lg">
           <div className="mb-4 flex items-center gap-2">
             <BarChart className="h-5 w-5 text-green-400" />
-            <h2 className="text-xl font-bold text-white">Data Visualization</h2>
+            <h2 className="text-xl font-bold text-white">{chartTitle}</h2>
           </div>
           <div className="h-96 w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -187,7 +255,7 @@ export default function AnalysisDashboard({
                     borderRadius: '8px',
                     color: '#f1f5f9',
                   }}
-                  formatter={(value: any) => [value.toFixed(2), 'Value']}
+                  formatter={tooltipFormatter}
                 />
                 <Legend wrapperStyle={{ paddingTop: '16px', color: '#cbd5e1' }} />
                 <Line
@@ -210,7 +278,7 @@ export default function AnalysisDashboard({
                     );
                   }}
                   activeDot={{ r: 7 }}
-                  name="Sales Trend & Forecast"
+                  name={forecastTitle}
                 />
               </LineChart>
             </ResponsiveContainer>

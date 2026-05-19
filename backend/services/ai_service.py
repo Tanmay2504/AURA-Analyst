@@ -1,1 +1,2 @@
-from .gemini_service import analyze_data_with_gemini
+from .gemini_service import analyze_data_with_gemini, analyze_dataframe_locally, compare_datasets_with_gemini
+

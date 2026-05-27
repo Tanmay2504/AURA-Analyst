@@ -7,8 +7,6 @@ from typing import Any, Dict, List, Optional, Tuple
 import pandas as pd
 import google.generativeai as genai
 from google.api_core.exceptions import GoogleAPICallError
-from statsmodels.tsa.holtwinters import ExponentialSmoothing
-from statsmodels.tsa.statespace.sarimax import SARIMAX
 
 
 def _load_env_file() -> None:
@@ -521,6 +519,17 @@ def _build_forecast_data(df: pd.DataFrame, context: Dict[str, Optional[str]]) ->
 
     horizon = 7
     forecast_values: List[float] = []
+
+    try:
+        from statsmodels.tsa.statespace.sarimax import SARIMAX  # noqa: PLC0415
+        from statsmodels.tsa.holtwinters import ExponentialSmoothing  # noqa: PLC0415
+    except ImportError as exc:
+        return {
+            "available": False,
+            "reason": f"statsmodels not available: {exc}",
+            "date_column": date_column,
+            "target_column": target_column,
+        }
 
     try:
         model = SARIMAX(

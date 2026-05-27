@@ -95,6 +95,7 @@ export default function Home() {
   const [liveAgentLog, setLiveAgentLog] = useState<string[]>(LIVE_AGENT_STEPS);
   const [selectedBedrockModel, setSelectedBedrockModel] = useState<string | undefined>(undefined);
   const [columnNames, setColumnNames] = useState<string[]>([]);
+  const [analysisMode, setAnalysisMode] = useState<"quick" | "standard" | "deep">("standard");
 
   useEffect(() => {
     if (!loading) {
@@ -150,6 +151,7 @@ export default function Home() {
       formData.append("file", csvFiles[0]);
     }
     if (selectedBedrockModel) formData.append("model_id", selectedBedrockModel);
+    formData.append("analysis_mode", analysisMode);
 
     try {
       const endpoint = isBatch
@@ -290,6 +292,34 @@ export default function Home() {
                   <p className="mt-2 text-xs text-slate-400">
                     Choose a model suitable for your analysis. The selector pulls a curated list from the backend.
                   </p>
+                </div>
+
+                {/* Analysis Mode Selector */}
+                <div className="mb-4 rounded-xl border border-slate-700 bg-slate-800/70 p-4">
+                  <label className="mb-3 block text-sm font-semibold text-slate-200">
+                    Analysis Mode
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { value: "quick", label: "⚡ Quick", desc: "~15s", detail: "Brief summary, 2-3 insights" },
+                      { value: "standard", label: "⚖️ Standard", desc: "~45s", detail: "Balanced, 5 insights" },
+                      { value: "deep", label: "🔬 Deep", desc: "~90s", detail: "Full rich analysis" },
+                    ].map((mode) => (
+                      <button
+                        key={mode.value}
+                        onClick={() => setAnalysisMode(mode.value as "quick" | "standard" | "deep")}
+                        className={`flex flex-col items-center rounded-lg border p-3 text-center transition-all ${
+                          analysisMode === mode.value
+                            ? "border-blue-500 bg-blue-500/20 text-blue-200"
+                            : "border-slate-600 bg-slate-800/40 text-slate-400 hover:border-slate-500 hover:text-slate-300"
+                        }`}
+                      >
+                        <span className="text-sm font-semibold">{mode.label}</span>
+                        <span className={`text-xs font-bold mt-0.5 ${analysisMode === mode.value ? "text-blue-300" : "text-slate-500"}`}>{mode.desc}</span>
+                        <span className="mt-1 text-xs leading-tight opacity-75">{mode.detail}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <FileUpload

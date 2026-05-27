@@ -26,7 +26,14 @@ except Exception:
 	_USE_BEDROCK = False
 
 
-def analyze_data_with_gemini(df, model_id: str | None = None) -> Dict[str, Any]:
+# max_tokens per analysis mode
+_MODE_TOKENS = {
+    "quick": 1024,
+    "standard": 2048,
+    "deep": 4096,
+}
+
+def analyze_data_with_gemini(df, model_id: str | None = None, analysis_mode: str = "standard") -> Dict[str, Any]:
 	"""
 	Bedrock-only analysis wrapper for legacy endpoints.
 
@@ -90,8 +97,8 @@ def analyze_data_with_gemini(df, model_id: str | None = None) -> Dict[str, Any]:
 		}
 		prompt = bedrock._build_analysis_prompt(slim_summary, analysis_type, None)
 
-		# Cap max_tokens at 1024 for fast responses (was 4096 — saves ~60s)
-		max_tokens = 1024
+		# Set max_tokens based on analysis_mode chosen by user
+		max_tokens = _MODE_TOKENS.get(analysis_mode, 2048)
 
 		# Prepare body similar to BedrockService._invoke_model
 		if "claude" in selected_model_id.lower():

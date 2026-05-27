@@ -284,6 +284,7 @@ from datetime import datetime
 async def legacy_analyze(
     file: UploadFile = File(...),
     model_id: Optional[str] = Form(None),
+    analysis_mode: Optional[str] = Form("standard"),
 ):
     """Legacy /analyze endpoint - proxies to main.py logic using ai_service"""
     import asyncio
@@ -305,7 +306,7 @@ async def legacy_analyze(
         # Run the synchronous blocking Bedrock call in a thread pool to avoid blocking the event loop
         loop = asyncio.get_event_loop()
         analysis_result = await loop.run_in_executor(
-            None, lambda: ai_service.analyze_data_with_gemini(df, model_id=model_id)
+            None, lambda: ai_service.analyze_data_with_gemini(df, model_id=model_id, analysis_mode=analysis_mode or "standard")
         )
     except AIServiceError as e:
         raise HTTPException(status_code=getattr(e, 'status_code', 503), detail=str(getattr(e, 'detail', e)))

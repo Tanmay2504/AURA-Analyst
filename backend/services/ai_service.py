@@ -68,14 +68,30 @@ def analyze_data_with_gemini(df, model_id: str | None = None) -> Dict[str, Any]:
 			"forecast_data": forecast_data,
 		}
 
-		# Build a concise prompt for faster responses
+		# Build a concise prompt - always use quick mode for speed
 		rows = profile.get("rows", 0)
-		# Use concise mode for large datasets to reduce response time
-		analysis_type = "quick" if rows > 10000 else "comprehensive"
-		prompt = bedrock._build_analysis_prompt(data_summary, analysis_type, None)
+		analysis_type = "quick"
 
-		# Limit max_tokens based on dataset size for faster responses
-		max_tokens = 2048 if rows > 10000 else 4096
+		# Trim profile to reduce prompt size and speed up response
+		slim_profile = {
+			"rows": profile.get("rows"),
+			"columns": profile.get("columns"),
+			"numeric_columns": profile.get("numeric_columns", [])[:10],
+			"datetime_candidates": profile.get("datetime_candidates", []),
+			"missing_values": {k: v for k, v in list(profile.get("missing_values", {}).items())[:10]},
+			"duplicate_rows": profile.get("duplicate_rows"),
+			"top_correlations": profile.get("top_correlations", [])[:3],
+			"outliers": {k: v for k, v in list(profile.get("outliers", {}).items())[:5]},
+			"sample_rows": profile.get("sample_rows", [])[:3],
+		}
+		slim_summary = {
+			"profile": slim_profile,
+			"analysis_metadata": analysis_metadata,
+		}
+		prompt = bedrock._build_analysis_prompt(slim_summary, analysis_type, None)
+
+		# Cap max_tokens at 1024 for fast responses (was 4096 — saves ~60s)
+		max_tokens = 1024
 
 		# Prepare body similar to BedrockService._invoke_model
 		if "claude" in selected_model_id.lower():

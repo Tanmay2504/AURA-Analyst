@@ -761,6 +761,13 @@ def _build_histogram(series, bins: int = 10):
     ]
 
 
+# Keep-alive endpoint - ping this every 5 min to prevent Render cold starts
+@app.get("/ping", tags=["Health"])
+async def ping():
+    """Lightweight keep-alive endpoint"""
+    return {"status": "ok"}
+
+
 # Root endpoint
 @app.get("/", tags=["Root"])
 async def root():

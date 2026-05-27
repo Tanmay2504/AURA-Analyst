@@ -4,7 +4,30 @@ import { useState, useEffect } from "react";
 import AuraHero from "@/components/ui/hero";
 import FileUpload from "@/components/FileUpload";
 import AnalysisDashboard from "@/components/AnalysisDashboard";
-import { AlertCircle, Loader, CheckCircle, History, Home as HomeIcon } from "lucide-react";
+import AIModelSelector from "@/components/AIModelSelector";
+import NLQueryChat from "@/components/NLQueryChat";
+import ColumnAnalysisPanel from "@/components/ColumnAnalysisPanel";
+import ExportButton from "@/components/ExportButton";
+import { AlertCircle, Loader, CheckCircle, History, Home as HomeIcon, Settings } from "lucide-react";
+
+const BEDROCK_MODEL_OPTIONS = [
+  {
+    label: "Claude Sonnet 4.6 - recommended",
+    value: "arn:aws:bedrock:us-east-1:699038657654:inference-profile/us.anthropic.claude-sonnet-4-6",
+  },
+  {
+    label: "Claude Sonnet 4 - stable",
+    value: "arn:aws:bedrock:us-east-1:699038657654:inference-profile/us.anthropic.claude-sonnet-4-20250514-v1:0",
+  },
+  {
+    label: "Claude Opus 4.6 - strongest reasoning",
+    value: "arn:aws:bedrock:us-east-1:699038657654:inference-profile/us.anthropic.claude-opus-4-6-v1",
+  },
+  {
+    label: "Claude Haiku 4.5 - fastest fallback",
+    value: "arn:aws:bedrock:us-east-1:699038657654:inference-profile/us.anthropic.claude-haiku-4-5-20251001-v1:0",
+  },
+];
 
 const LIVE_AGENT_STEPS = [
   "Data Custodian cleaning data...",
@@ -70,6 +93,8 @@ export default function Home() {
   const [showHistory, setShowHistory] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
   const [liveAgentLog, setLiveAgentLog] = useState<string[]>(LIVE_AGENT_STEPS);
+  const [selectedBedrockModel, setSelectedBedrockModel] = useState<string | undefined>(undefined);
+  const [columnNames, setColumnNames] = useState<string[]>([]);
 
   useEffect(() => {
     if (!loading) {
@@ -90,7 +115,7 @@ export default function Home() {
   // Fetch analysis history
   const fetchHistory = async () => {
     try {
-      const response = await fetch("http://localhost:8000/history?limit=10");
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/history?limit=10`);
       if (!response.ok) throw new Error("Failed to fetch history");
       const data = await response.json();
       setHistoryData(data.records || []);
@@ -124,9 +149,12 @@ export default function Home() {
     } else {
       formData.append("file", csvFiles[0]);
     }
+    if (selectedBedrockModel) formData.append("model_id", selectedBedrockModel);
 
     try {
-      const endpoint = isBatch ? "http://localhost:8000/analyze/batch" : "http://localhost:8000/analyze";
+      const endpoint = isBatch
+        ? `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/analyze/batch`
+        : `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/analyze`;
       const response = await fetch(endpoint, {
         method: "POST",
         body: formData,
@@ -144,6 +172,14 @@ export default function Home() {
         const singleData = data as AnalysisData;
         setAnalysisData(singleData);
         setLiveAgentLog(singleData.agent_status?.length ? singleData.agent_status : LIVE_AGENT_STEPS);
+        // Fetch real column names from the stored CSV
+        try {
+          const colRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/columns/${singleData.id}`);
+          if (colRes.ok) {
+            const colData = await colRes.json();
+            setColumnNames(colData.columns || []);
+          }
+        } catch { /* non-critical */ }
       }
       setError("");
 
@@ -163,7 +199,7 @@ export default function Home() {
   // Handle loading analysis from history
   const handleLoadFromHistory = async (id: number) => {
     try {
-      const response = await fetch(`http://localhost:8000/analysis/${id}`);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/analysis/${id}`);
       if (!response.ok) throw new Error("Failed to load analysis");
       const data: AnalysisData = await response.json();
       setAnalysisData(data);
@@ -220,19 +256,42 @@ export default function Home() {
                   Upload a CSV file to get instant AI-powered insights and visualizations
                 </p>
               </div>
-              <button
-                onClick={handleGoHome}
-                className="inline-flex items-center gap-2 rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 text-sm text-slate-200 transition-all hover:border-slate-400 hover:bg-slate-700"
-              >
-                <HomeIcon className="h-4 w-4" />
-                Home
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleGoHome}
+                  className="inline-flex items-center gap-2 rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 text-sm text-slate-200 transition-all hover:border-slate-400 hover:bg-slate-700"
+                >
+                  <HomeIcon className="h-4 w-4" />
+                  Home
+                </button>
+                <a
+                  href="/admin"
+                  title="Admin Settings"
+                  className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2 text-sm text-slate-400 transition-all hover:border-slate-500 hover:text-slate-200 hover:bg-slate-700"
+                >
+                  <Settings className="h-4 w-4" />
+                </a>
+              </div>
             </div>
 
             {/* Upload Section */}
             <div className="grid gap-8 lg:grid-cols-3">
               {/* Upload Card */}
               <div className="lg:col-span-1">
+                <div className="mb-4 rounded-xl border border-slate-700 bg-slate-800/70 p-4">
+                  <label className="mb-2 block text-sm font-semibold text-slate-200">
+                    Bedrock model for single-file analysis
+                  </label>
+                  <AIModelSelector
+                    selectedModel={selectedBedrockModel}
+                    onModelSelect={(modelId) => setSelectedBedrockModel(modelId)}
+                    apiUrl={process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}
+                  />
+                  <p className="mt-2 text-xs text-slate-400">
+                    Choose a model suitable for your analysis. The selector pulls a curated list from the backend.
+                  </p>
+                </div>
+
                 <FileUpload
                   onFileSelect={handleAnalyze}
                   disabled={loading}
@@ -410,19 +469,50 @@ export default function Home() {
 
                 {analysisData && !loading && !batchAnalysisData && (
                   <div className="space-y-4">
-                    <div className="flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/10 p-4">
-                      <CheckCircle className="h-5 w-5 text-green-400" />
-                      <span className="text-sm text-green-300">
-                        Analysis complete!
-                      </span>
+                    {/* Success bar + Export button */}
+                    <div className="flex items-center justify-between gap-2 rounded-lg border border-green-500/30 bg-green-500/10 p-4">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-5 w-5 text-green-400" />
+                        <span className="text-sm text-green-300">Analysis complete!</span>
+                      </div>
+                      <ExportButton
+                        targetId="analysis-dashboard-export"
+                        filename={analysisData.filename}
+                        insights={analysisData.insights}
+                        chartData={analysisData.chart_data}
+                      />
                     </div>
-                    <AnalysisDashboard
-                      summary={analysisData.summary}
-                      insights={analysisData.insights}
-                      chartData={analysisData.chart_data}
-                      forecastData={analysisData.forecast_data}
-                      analysisMetadata={analysisData.analysis_metadata}
+
+                    {/* Dashboard (wrapped with export id) */}
+                    <div id="analysis-dashboard-export">
+                      <AnalysisDashboard
+                        summary={analysisData.summary}
+                        insights={analysisData.insights}
+                        chartData={analysisData.chart_data}
+                        forecastData={analysisData.forecast_data}
+                        analysisMetadata={analysisData.analysis_metadata}
+                        filename={analysisData.filename}
+                      />
+                    </div>
+
+                    {/* NL Query Chat */}
+                    <NLQueryChat
+                      analysisId={analysisData.id}
                       filename={analysisData.filename}
+                    />
+
+                    {/* Column Deep-Dive */}
+                    <ColumnAnalysisPanel
+                      analysisId={analysisData.id}
+                      columns={columnNames.length > 0 ? columnNames : (
+                        (() => {
+                          const cols: string[] = [];
+                          if (analysisData.analysis_metadata?.date_column) cols.push(analysisData.analysis_metadata.date_column);
+                          if (analysisData.analysis_metadata?.target_column) cols.push(analysisData.analysis_metadata.target_column);
+                          if (analysisData.analysis_metadata?.category_column) cols.push(analysisData.analysis_metadata.category_column);
+                          return cols;
+                        })()
+                      )}
                     />
 
                     {(analysisData.agent_status?.length || liveAgentLog.length > 0) && (

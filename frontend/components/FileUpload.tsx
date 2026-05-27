@@ -122,7 +122,7 @@ export default function FileUpload({
               : 'bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:shadow-[0_0_20px_rgba(59,130,246,0.5)]'
           }`}
           disabled={disabled || isLoading}
-          onClick={() => file && handleCallback(file)}
+          onClick={() => handleCallback(files)}
         >
           {isLoading ? (
             <span className="flex items-center justify-center gap-2">

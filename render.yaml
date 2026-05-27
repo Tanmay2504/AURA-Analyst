@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: aura-analyst-backend
+    runtime: python
+    # Run from repo root so "from backend.xxx import ..." works
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: AWS_REGION
+        value: us-east-1
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: BEDROCK_MODEL_ID
+        value: arn:aws:bedrock:us-east-1:699038657654:inference-profile/us.anthropic.claude-sonnet-4-6
+      - key: DATABASE_URL
+        value: sqlite:///./aura_analyst.db
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: CORS_ORIGINS
+        sync: false
+    healthCheckPath: /health
+    autoDeploy: true

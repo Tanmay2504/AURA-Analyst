@@ -1,11 +1,55 @@
-backend/.env
-backend/venv/
-frontend/.next/
-frontend/node_modules/
-frontend/.env
-frontend/.env.*
+# Python
 **/__pycache__/
 *.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+backend/venv/
+backend/.venv/
+venv/
+.venv/
+
+# Environment files (secrets) — keep .env.example files tracked
+backend/.env
+frontend/.env
+frontend/.env.local
+frontend/.env.production
+.env.local
+.env.production
+# Do NOT ignore .env.example files — they are templates for deployment
+
+# Database files
 *.db
-backend/_sample.csv
-/package-lock.json
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+# Frontend build artifacts
+frontend/.next/
+frontend/node_modules/
+frontend/tsconfig.tsbuildinfo
+
+# Sample/test data files at root
+_sample.csv
+_timeseries_sample.csv
+
+# Temp/generated files
+.remote-url-check.txt
+reports/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/settings.json
+.idea/

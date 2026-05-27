@@ -2,8 +2,15 @@
 Data Processing Service
 Handles file processing, data validation, and metadata extraction
 """
-import pandas as pd
-import numpy as np
+try:
+    import pandas as pd
+    import numpy as np
+    _PANDAS_AVAILABLE = True
+except ImportError:
+    pd = None  # type: ignore
+    np = None  # type: ignore
+    _PANDAS_AVAILABLE = False
+
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 import logging

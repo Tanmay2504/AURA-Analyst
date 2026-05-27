@@ -4,7 +4,13 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-import pandas as pd
+try:
+    import pandas as pd
+    _PANDAS_AVAILABLE = True
+except ImportError:
+    pd = None  # type: ignore
+    _PANDAS_AVAILABLE = False
+
 import google.generativeai as genai
 from google.api_core.exceptions import GoogleAPICallError
 

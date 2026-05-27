@@ -38,6 +38,11 @@ frontend/.next/
 frontend/node_modules/
 frontend/tsconfig.tsbuildinfo
 
+# Logs (may contain sensitive info like model ARNs)
+logs/
+*.log
+backend/logs/
+
 # Sample/test data files at root
 _sample.csv
 _timeseries_sample.csv

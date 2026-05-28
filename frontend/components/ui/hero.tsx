@@ -74,9 +74,9 @@ function BootScreen({ onDone }: { onDone: () => void }) {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.1 }}
                 className={`leading-6 ${line.startsWith("[ OK ]") ? "text-[#4ade80]" :
-                    line.startsWith("AURA") ? "text-[#fb923c] font-bold text-base" :
-                      line.startsWith("─") ? "text-[#2a2a1e]" :
-                        "text-[#7a7060]"
+                  line.startsWith("AURA") ? "text-[#fb923c] font-bold text-base" :
+                    line.startsWith("─") ? "text-[#2a2a1e]" :
+                      "text-[#7a7060]"
                   }`}
               >
                 {line}
@@ -276,7 +276,7 @@ export default function AuraHero({ onGetStarted }: { onGetStarted?: () => void }
                   </button>
                   <a href="#features"
                     className="font-mono text-sm border border-[#2a2a1e] px-6 py-2.5 text-[#7a7060] hover:border-[#f97316]/40 hover:text-[#e8e0cc] transition-all uppercase tracking-widest">
-                    man aura
+                    learn more
                   </a>
                 </motion.div>
 

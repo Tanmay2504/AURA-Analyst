@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Bot, User, Loader2, MessageSquare, Sparkles } from "lucide-react";
+import { Send } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -17,19 +17,19 @@ interface NLQueryChatProps {
 }
 
 const SUGGESTED_QUESTIONS = [
-  "What is the average score across all subjects?",
-  "Which city has the highest performing students?",
-  "How many students have attendance above 90%?",
-  "What percentage of students received a scholarship?",
-  "Which subject has the lowest average marks?",
-  "How many students are currently active vs suspended?",
+  "What is the average value across all columns?",
+  "Which category has the highest count?",
+  "Are there any outliers in the data?",
+  "What is the overall trend?",
+  "Which column has the most missing values?",
+  "What are the top 3 insights from this dataset?",
 ];
 
 export default function NLQueryChat({ analysisId, filename }: NLQueryChatProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: `Hi! I'm your AI data analyst. Ask me anything about **${filename || "your dataset"}** — I can answer questions about trends, statistics, comparisons, and more.`,
+      content: `AURA analyst ready. Ask me anything about ${filename || "your dataset"} — trends, statistics, comparisons, anomalies.`,
       timestamp: new Date(),
     },
   ]);
@@ -43,12 +43,10 @@ export default function NLQueryChat({ analysisId, filename }: NLQueryChatProps) 
 
   const sendQuestion = async (question: string) => {
     if (!question.trim() || loading) return;
-
     const userMsg: Message = { role: "user", content: question, timestamp: new Date() };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
     setLoading(true);
-
     try {
       const res = await fetch(`${API}/query/${analysisId}`, {
         method: "POST",
@@ -56,117 +54,87 @@ export default function NLQueryChat({ analysisId, filename }: NLQueryChatProps) 
         body: JSON.stringify({ question }),
       });
       const data = await res.json();
-      const answer = res.ok ? data.answer : (data.detail || "Sorry, I couldn't answer that.");
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: answer, timestamp: new Date() },
-      ]);
+      const answer = res.ok ? data.answer : (data.detail || "Query failed.");
+      setMessages((prev) => [...prev, { role: "assistant", content: answer, timestamp: new Date() }]);
     } catch {
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: "Network error. Please try again.", timestamp: new Date() },
-      ]);
+      setMessages((prev) => [...prev, { role: "assistant", content: "Connection error. Is the backend running?", timestamp: new Date() }]);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendQuestion(input); }
+  };
+
   return (
-    <div className="flex flex-col h-full bg-slate-900 rounded-2xl border border-slate-700/50 overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-700/50 bg-slate-800/60">
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center">
-          <MessageSquare className="w-4 h-4 text-white" />
-        </div>
-        <div>
-          <h3 className="font-semibold text-white text-sm">Ask Your Data</h3>
-          <p className="text-xs text-slate-400">Natural language queries powered by AI</p>
-        </div>
-        <div className="ml-auto flex items-center gap-1.5 text-xs text-emerald-400 bg-emerald-400/10 px-2.5 py-1 rounded-full">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          Live
+    <div className="w-full space-y-3">
+      {/* Suggested questions */}
+      <div>
+        <div className="font-mono text-[10px] text-[#3d3a2e] uppercase tracking-widest mb-2">// suggested queries</div>
+        <div className="flex flex-wrap gap-1.5">
+          {SUGGESTED_QUESTIONS.map((q, i) => (
+            <button key={i} onClick={() => sendQuestion(q)}
+              className="font-mono text-[10px] border border-[#2a2a1e] px-2 py-1 text-[#7a7060] hover:border-[#f97316]/40 hover:text-[#f97316] transition-all">
+              {q.length > 40 ? q.slice(0, 40) + '…' : q}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0" style={{ maxHeight: "380px" }}>
+      {/* Chat messages */}
+      <div className="border border-[#2a2a1e] bg-[#0a0a08] h-72 overflow-y-auto p-3 space-y-3">
         {messages.map((msg, i) => (
-          <div key={i} className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
-            <div
-              className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-white text-xs font-bold ${
-                msg.role === "assistant"
-                  ? "bg-gradient-to-br from-violet-500 to-blue-500"
-                  : "bg-gradient-to-br from-blue-500 to-cyan-500"
-              }`}
-            >
-              {msg.role === "assistant" ? <Bot className="w-4 h-4" /> : <User className="w-4 h-4" />}
+          <div key={i} className={`flex gap-2 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
+            <div className={`font-mono text-[10px] flex-shrink-0 w-5 text-center mt-0.5
+              ${msg.role === "user" ? "text-[#f97316]" : "text-[#4ade80]"}`}>
+              {msg.role === "user" ? ">" : "$"}
             </div>
-            <div
-              className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                msg.role === "assistant"
-                  ? "bg-slate-800 text-slate-200 rounded-tl-sm"
-                  : "bg-blue-600 text-white rounded-tr-sm"
-              }`}
-            >
-              {msg.content}
+            <div className={`max-w-[85%] border p-2.5
+              ${msg.role === "user"
+                ? "border-[#f97316]/30 bg-[#f97316]/5"
+                : "border-[#2a2a1e] bg-[#0f0f0b]"}`}>
+              <p className="font-mono text-xs text-[#e8e0cc] leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+              <p className="font-mono text-[9px] text-[#3d3a2e] mt-1">
+                {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </p>
             </div>
           </div>
         ))}
         {loading && (
-          <div className="flex gap-3">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center">
-              <Bot className="w-4 h-4 text-white" />
-            </div>
-            <div className="bg-slate-800 rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-2">
-              <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
-              <span className="text-slate-400 text-sm">Analyzing...</span>
+          <div className="flex gap-2">
+            <div className="font-mono text-[10px] text-[#4ade80] w-5 text-center mt-0.5">$</div>
+            <div className="border border-[#2a2a1e] bg-[#0f0f0b] p-2.5">
+              <span className="font-mono text-xs text-[#f97316]">
+                analyzing<span className="blink">█</span>
+              </span>
             </div>
           </div>
         )}
         <div ref={bottomRef} />
       </div>
 
-      {/* Suggested questions */}
-      {messages.length <= 1 && (
-        <div className="px-4 pb-2">
-          <p className="text-xs text-slate-500 mb-2 flex items-center gap-1">
-            <Sparkles className="w-3 h-3" /> Suggested questions
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {SUGGESTED_QUESTIONS.slice(0, 3).map((q) => (
-              <button
-                key={q}
-                onClick={() => sendQuestion(q)}
-                className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-full border border-slate-600/50 transition-colors"
-              >
-                {q}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Input */}
-      <div className="px-4 pb-4 pt-2 border-t border-slate-700/50">
-        <form
-          onSubmit={(e) => { e.preventDefault(); sendQuestion(input); }}
-          className="flex gap-2"
-        >
+      <div className="flex gap-2">
+        <div className="flex-1 flex items-center border border-[#2a2a1e] bg-[#0a0a08] hover:border-[#f97316]/40 transition-all">
+          <span className="font-mono text-xs text-[#f97316] px-3 flex-shrink-0">{">"}</span>
           <input
+            type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask anything about your data..."
-            className="flex-1 bg-slate-800 border border-slate-600/50 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20"
+            onKeyDown={handleKeyDown}
+            placeholder="ask anything about your data..."
             disabled={loading}
+            className="flex-1 bg-transparent font-mono text-xs text-[#e8e0cc] placeholder-[#3d3a2e] outline-none py-2.5 pr-3"
           />
-          <button
-            type="submit"
-            disabled={loading || !input.trim()}
-            className="w-10 h-10 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
-          >
-            <Send className="w-4 h-4 text-white" />
-          </button>
-        </form>
+        </div>
+        <button
+          onClick={() => sendQuestion(input)}
+          disabled={loading || !input.trim()}
+          className="border border-[#f97316] px-3 py-2.5 text-[#f97316] hover:bg-[#f97316] hover:text-[#0a0a08] transition-all disabled:opacity-30 disabled:pointer-events-none"
+        >
+          <Send className="w-3.5 h-3.5" />
+        </button>
       </div>
     </div>
   );

@@ -1,10 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
-} from "recharts";
-import { Columns, ChevronDown, Loader2, TrendingUp, Hash, AlertTriangle, CheckCircle } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { ChevronDown } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -15,7 +13,6 @@ interface ColumnData {
   missing: number;
   missing_pct: number;
   unique: number;
-  // numeric
   min?: number;
   max?: number;
   mean?: number;
@@ -25,7 +22,6 @@ interface ColumnData {
   q75?: number;
   outliers?: number;
   histogram?: { range: string; count: number }[];
-  // categorical
   top_values?: { value: string; count: number }[];
   bar_data?: { name: string; value: number }[];
 }
@@ -35,17 +31,19 @@ interface ColumnAnalysisPanelProps {
   columns: string[];
 }
 
-const COLORS = ["#3b82f6", "#8b5cf6", "#06b6d4", "#10b981", "#f59e0b", "#ef4444", "#ec4899", "#6366f1"];
+const fmt = (n?: number) => n == null ? "—" : Number.isInteger(n) ? n.toLocaleString() : n.toFixed(4);
 
 export default function ColumnAnalysisPanel({ analysisId, columns }: ColumnAnalysisPanelProps) {
   const [selected, setSelected] = useState<string>("");
   const [data, setData] = useState<ColumnData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [open, setOpen] = useState(false);
 
   const fetchColumn = async (col: string) => {
     if (!col) return;
     setSelected(col);
+    setOpen(false);
     setLoading(true);
     setError("");
     setData(null);
@@ -60,165 +58,163 @@ export default function ColumnAnalysisPanel({ analysisId, columns }: ColumnAnaly
     }
   };
 
-  const isNumeric = data && data.histogram !== undefined;
+  const isNumeric = data && data.min !== undefined;
+  const chartData = isNumeric
+    ? (data.histogram || []).map((b) => ({ name: b.range, value: b.count }))
+    : (data?.bar_data || data?.top_values?.map((v) => ({ name: v.value, value: v.count })) || []);
+
+  if (!columns || columns.length === 0) {
+    return (
+      <div className="font-mono text-xs text-[#3d3a2e] py-4 text-center">
+        // no columns available for deep-dive analysis
+      </div>
+    );
+  }
 
   return (
-    <div className="bg-slate-900 rounded-2xl border border-slate-700/50 overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-700/50 bg-slate-800/60">
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500 to-teal-500 flex items-center justify-center">
-          <Columns className="w-4 h-4 text-white" />
-        </div>
-        <div>
-          <h3 className="font-semibold text-white text-sm">Column Deep-Dive</h3>
-          <p className="text-xs text-slate-400">Click any column for detailed statistics</p>
-        </div>
+    <div className="w-full space-y-3">
+      {/* Column selector */}
+      <div className="relative">
+        <button
+          onClick={() => setOpen(o => !o)}
+          className="w-full flex items-center justify-between border border-[#2a2a1e] px-3 py-2.5 hover:border-[#f97316]/40 transition-all"
+        >
+          <div>
+            <div className="font-mono text-[10px] text-[#3d3a2e] mb-0.5">// select_column</div>
+            <div className="font-mono text-xs text-[#e8e0cc]">
+              {selected || "choose a column to analyze"}
+            </div>
+          </div>
+          <ChevronDown className={`w-3.5 h-3.5 text-[#f97316] transition-transform ${open ? "rotate-180" : ""}`} />
+        </button>
+
+        {open && (
+          <div className="absolute top-full left-0 right-0 z-50 border border-[#f97316]/30 bg-[#0f0f0b] max-h-48 overflow-y-auto shadow-xl">
+            {columns.map((col) => (
+              <button
+                key={col}
+                onClick={() => fetchColumn(col)}
+                className={`w-full px-3 py-2 text-left border-b border-[#2a2a1e] last:border-0 hover:bg-[#f97316]/5 transition-all
+                  ${selected === col ? "bg-[#f97316]/5 border-l-2 border-l-[#f97316]" : ""}`}
+              >
+                <span className="font-mono text-xs text-[#e8e0cc]">{col}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      <div className="p-5">
-        {/* Column selector */}
-        <div className="relative mb-5">
-          <select
-            value={selected}
-            onChange={(e) => fetchColumn(e.target.value)}
-            className="w-full appearance-none bg-slate-800 border border-slate-600/50 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500/50 pr-10"
-          >
-            <option value="">— Select a column —</option>
-            {columns.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+      {/* Loading */}
+      {loading && (
+        <div className="border border-[#2a2a1e] p-4 text-center">
+          <span className="font-mono text-xs text-[#f97316]">loading_column_data<span className="blink">█</span></span>
         </div>
+      )}
 
-        {/* Quick column chips */}
-        <div className="flex flex-wrap gap-2 mb-5">
-          {columns.slice(0, 8).map((c) => (
-            <button
-              key={c}
-              onClick={() => fetchColumn(c)}
-              className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                selected === c
-                  ? "bg-blue-600 border-blue-500 text-white"
-                  : "bg-slate-800 border-slate-600/50 text-slate-300 hover:border-blue-500/50"
-              }`}
-            >
-              {c}
-            </button>
-          ))}
+      {/* Error */}
+      {error && (
+        <div className="border border-[#f87171]/30 bg-[#f87171]/5 p-3">
+          <span className="font-mono text-xs text-[#f87171]">error: {error}</span>
         </div>
+      )}
 
-        {loading && (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-6 h-6 text-blue-400 animate-spin" />
-            <span className="ml-2 text-slate-400 text-sm">Loading column stats...</span>
+      {/* Column stats */}
+      {data && !loading && (
+        <div className="space-y-3">
+          {/* Header stats */}
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="border border-[#2a2a1e] p-2 text-center">
+              <div className="font-mono text-[9px] text-[#3d3a2e] uppercase">dtype</div>
+              <div className="font-mono text-xs font-bold text-[#f97316]">{data.dtype}</div>
+            </div>
+            <div className="border border-[#2a2a1e] p-2 text-center">
+              <div className="font-mono text-[9px] text-[#3d3a2e] uppercase">total</div>
+              <div className="font-mono text-xs font-bold text-[#e8e0cc]">{data.total_values.toLocaleString()}</div>
+            </div>
+            <div className={`border p-2 text-center ${data.missing > 0 ? "border-[#f87171]/30 bg-[#f87171]/5" : "border-[#2a2a1e]"}`}>
+              <div className="font-mono text-[9px] text-[#3d3a2e] uppercase">missing</div>
+              <div className={`font-mono text-xs font-bold ${data.missing > 0 ? "text-[#f87171]" : "text-[#4ade80]"}`}>
+                {data.missing} ({data.missing_pct}%)
+              </div>
+            </div>
+            <div className="border border-[#2a2a1e] p-2 text-center">
+              <div className="font-mono text-[9px] text-[#3d3a2e] uppercase">unique</div>
+              <div className="font-mono text-xs font-bold text-[#e8e0cc]">{data.unique.toLocaleString()}</div>
+            </div>
           </div>
-        )}
 
-        {error && (
-          <div className="flex items-center gap-2 text-red-400 bg-red-400/10 rounded-xl p-3 text-sm">
-            <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-            {error}
-          </div>
-        )}
-
-        {data && !loading && (
-          <div className="space-y-4">
-            {/* Overview stats */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {/* Numeric stats */}
+          {isNumeric && (
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
               {[
-                { label: "Total", value: data.total_values.toLocaleString(), icon: Hash, color: "text-blue-400" },
-                { label: "Unique", value: data.unique.toLocaleString(), icon: TrendingUp, color: "text-violet-400" },
-                { label: "Missing", value: `${data.missing_pct}%`, icon: AlertTriangle, color: data.missing_pct > 5 ? "text-amber-400" : "text-emerald-400" },
-                { label: "Type", value: data.dtype, icon: CheckCircle, color: "text-cyan-400" },
-              ].map(({ label, value, icon: Icon, color }) => (
-                <div key={label} className="bg-slate-800/60 rounded-xl p-3 border border-slate-700/50">
-                  <div className={`flex items-center gap-1.5 text-xs mb-1 ${color}`}>
-                    <Icon className="w-3 h-3" />
-                    {label}
-                  </div>
-                  <div className="text-white font-semibold text-sm truncate">{value}</div>
+                { k: "min", v: fmt(data.min) },
+                { k: "max", v: fmt(data.max) },
+                { k: "mean", v: fmt(data.mean) },
+                { k: "median", v: fmt(data.median) },
+                { k: "std_dev", v: fmt(data.std) },
+                { k: "q25", v: fmt(data.q25) },
+                { k: "q75", v: fmt(data.q75) },
+                { k: "outliers", v: String(data.outliers ?? 0) },
+              ].map(({ k, v }) => (
+                <div key={k} className="border border-[#2a2a1e] p-2 text-center">
+                  <div className="font-mono text-[9px] text-[#3d3a2e] uppercase">{k}</div>
+                  <div className="font-mono text-xs font-bold text-[#f97316]">{v}</div>
                 </div>
               ))}
             </div>
+          )}
 
-            {/* Numeric stats */}
-            {isNumeric && (
-              <>
-                <div className="grid grid-cols-3 gap-3">
-                  {[
-                    { label: "Min", value: data.min },
-                    { label: "Mean", value: data.mean },
-                    { label: "Max", value: data.max },
-                    { label: "Median", value: data.median },
-                    { label: "Std Dev", value: data.std },
-                    { label: "Outliers", value: data.outliers },
-                  ].map(({ label, value }) => (
-                    <div key={label} className="bg-slate-800/40 rounded-lg p-2.5 border border-slate-700/30">
-                      <div className="text-xs text-slate-500 mb-0.5">{label}</div>
-                      <div className="text-sm font-medium text-slate-200">
-                        {typeof value === "number" ? value.toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—"}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Histogram */}
-                {data.histogram && data.histogram.length > 0 && (
-                  <div>
-                    <p className="text-xs text-slate-500 mb-2 font-medium uppercase tracking-wide">Distribution</p>
-                    <ResponsiveContainer width="100%" height={140}>
-                      <BarChart data={data.histogram} margin={{ top: 0, right: 0, bottom: 0, left: -20 }}>
-                        <XAxis dataKey="range" tick={{ fontSize: 9, fill: "#64748b" }} interval={1} />
-                        <YAxis tick={{ fontSize: 9, fill: "#64748b" }} />
-                        <Tooltip
-                          contentStyle={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 8, fontSize: 12 }}
-                          labelStyle={{ color: "#94a3b8" }}
-                          itemStyle={{ color: "#60a5fa" }}
-                        />
-                        <Bar dataKey="count" radius={[3, 3, 0, 0]}>
-                          {data.histogram.map((_, idx) => (
-                            <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
-              </>
-            )}
-
-            {/* Categorical stats */}
-            {!isNumeric && data.bar_data && data.bar_data.length > 0 && (
-              <div>
-                <p className="text-xs text-slate-500 mb-2 font-medium uppercase tracking-wide">Top Values</p>
-                <ResponsiveContainer width="100%" height={160}>
-                  <BarChart data={data.bar_data} layout="vertical" margin={{ top: 0, right: 10, bottom: 0, left: 0 }}>
-                    <XAxis type="number" tick={{ fontSize: 9, fill: "#64748b" }} />
-                    <YAxis type="category" dataKey="name" tick={{ fontSize: 10, fill: "#94a3b8" }} width={80} />
+          {/* Chart */}
+          {chartData.length > 0 && (
+            <div>
+              <div className="font-mono text-[10px] text-[#3d3a2e] uppercase tracking-widest mb-2">
+                // {isNumeric ? "distribution_histogram" : "top_values"}
+              </div>
+              <div className="h-48 border border-[#2a2a1e] bg-[#0a0a08] p-2">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 24 }}>
+                    <XAxis dataKey="name" tick={{ fill: "#7a7060", fontSize: 9, fontFamily: "JetBrains Mono" }}
+                      angle={-30} textAnchor="end" height={40} />
+                    <YAxis tick={{ fill: "#7a7060", fontSize: 9, fontFamily: "JetBrains Mono" }} />
                     <Tooltip
-                      contentStyle={{ background: "#1e293b", border: "1px solid #334155", borderRadius: 8, fontSize: 12 }}
-                      itemStyle={{ color: "#60a5fa" }}
+                      contentStyle={{ backgroundColor: "#0f0f0b", border: "1px solid #f97316", borderRadius: 0, color: "#e8e0cc", fontFamily: "JetBrains Mono", fontSize: 10 }}
+                      cursor={{ fill: "rgba(249,115,22,0.05)" }}
                     />
-                    <Bar dataKey="value" radius={[0, 3, 3, 0]}>
-                      {data.bar_data.map((_, idx) => (
-                        <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
-                      ))}
-                    </Bar>
+                    <Bar dataKey="value" fill="#f97316" radius={0} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-            )}
-          </div>
-        )}
+            </div>
+          )}
 
-        {!data && !loading && !error && (
-          <div className="text-center py-10 text-slate-500">
-            <Columns className="w-10 h-10 mx-auto mb-3 opacity-30" />
-            <p className="text-sm">Select a column above to see detailed statistics</p>
-          </div>
-        )}
-      </div>
+          {/* Top values table (categorical) */}
+          {!isNumeric && data.top_values && data.top_values.length > 0 && (
+            <div>
+              <div className="font-mono text-[10px] text-[#3d3a2e] uppercase tracking-widest mb-2">// top_values</div>
+              <div className="space-y-1">
+                {data.top_values.slice(0, 8).map((v, i) => (
+                  <div key={i} className="flex items-center gap-3 border border-[#2a2a1e] px-3 py-1.5">
+                    <span className="font-mono text-[10px] text-[#3d3a2e] w-4 text-center">{i + 1}</span>
+                    <span className="flex-1 font-mono text-xs text-[#e8e0cc] truncate">{v.value}</span>
+                    <span className="font-mono text-xs font-bold text-[#f97316]">{v.count.toLocaleString()}</span>
+                    <div className="w-16 bg-[#2a2a1e] h-1">
+                      <div className="h-1 bg-[#f97316]"
+                        style={{ width: `${Math.round((v.count / (data.top_values![0]?.count || 1)) * 100)}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!data && !loading && !error && (
+        <div className="border border-dashed border-[#2a2a1e] p-6 text-center">
+          <div className="font-mono text-xs text-[#3d3a2e]">// select a column above to view deep-dive statistics</div>
+        </div>
+      )}
     </div>
   );
 }

@@ -25,30 +25,30 @@ interface BatchAnalysisData { total_files: number; datasets: AnalysisData[]; con
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const MODES = [
-  { value: "quick",    icon: "⚡", label: "QUICK",    time: "~15s", flag: "--mode quick",    desc: "Brief summary · 1024 tokens" },
+  { value: "quick", icon: "⚡", label: "QUICK", time: "~15s", flag: "--mode quick", desc: "Brief summary · 1024 tokens" },
   { value: "standard", icon: "⚖", label: "STANDARD", time: "~45s", flag: "--mode standard", desc: "Balanced · 2048 tokens" },
-  { value: "deep",     icon: "🔬", label: "DEEP",     time: "~90s", flag: "--mode deep",     desc: "Full analysis · 4096 tokens" },
+  { value: "deep", icon: "🔬", label: "DEEP", time: "~90s", flag: "--mode deep", desc: "Full analysis · 4096 tokens" },
 ] as const;
 
 const AGENT_STEPS = [
-  { label: "data_custodian",        desc: "Cleaning & validating dataset..." },
+  { label: "data_custodian", desc: "Cleaning & validating dataset..." },
   { label: "statistical_researcher", desc: "Detecting patterns & anomalies..." },
-  { label: "business_reporter",     desc: "Synthesizing actionable insights..." },
+  { label: "business_reporter", desc: "Synthesizing actionable insights..." },
 ];
 
 /* ── Main ────────────────────────────────────────────────────────────────── */
 export default function Home() {
-  const [analysisData, setAnalysisData]     = useState<AnalysisData | null>(null);
-  const [batchData, setBatchData]           = useState<BatchAnalysisData | null>(null);
-  const [loading, setLoading]               = useState(false);
-  const [error, setError]                   = useState("");
-  const [showAnalyzer, setShowAnalyzer]     = useState(false);
-  const [historyData, setHistoryData]       = useState<AnalysisData[]>([]);
-  const [showHistory, setShowHistory]       = useState(false);
-  const [loadingStep, setLoadingStep]       = useState(0);
-  const [model, setModel]                   = useState<string | undefined>(undefined);
-  const [columns, setColumns]               = useState<string[]>([]);
-  const [mode, setMode]                     = useState<"quick"|"standard"|"deep">("standard");
+  const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
+  const [batchData, setBatchData] = useState<BatchAnalysisData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [showAnalyzer, setShowAnalyzer] = useState(false);
+  const [historyData, setHistoryData] = useState<AnalysisData[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [loadingStep, setLoadingStep] = useState(0);
+  const [model, setModel] = useState<string | undefined>(undefined);
+  const [columns, setColumns] = useState<string[]>([]);
+  const [mode, setMode] = useState<"quick" | "standard" | "deep">("standard");
   const analyzerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -188,11 +188,10 @@ export default function Home() {
                     <div className="p-4 space-y-2">
                       {MODES.map(m => (
                         <button key={m.value} onClick={() => setMode(m.value)}
-                          className={`w-full flex items-center gap-3 border p-3 text-left transition-all duration-150 ${
-                            mode === m.value
+                          className={`w-full flex items-center gap-3 border p-3 text-left transition-all duration-150 ${mode === m.value
                               ? "border-[#f97316]/60 bg-[#f97316]/5 text-[#f97316]"
                               : "border-[#2a2a1e] text-[#7a7060] hover:border-[#f97316]/30 hover:text-[#e8e0cc]"
-                          }`}>
+                            }`}>
                           <span className="text-base w-6 text-center">{m.icon}</span>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between">
@@ -261,15 +260,14 @@ export default function Home() {
                             {AGENT_STEPS.map((step, i) => (
                               <motion.div key={i}
                                 initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.1 }}
-                                className={`flex items-center gap-4 border p-3 transition-all duration-500 ${
-                                  i < loadingStep ? "border-[#4ade80]/30 bg-[#4ade80]/5" :
-                                  i === loadingStep ? "border-[#f97316]/40 bg-[#f97316]/5" :
-                                  "border-[#2a2a1e] opacity-30"
-                                }`}>
+                                className={`flex items-center gap-4 border p-3 transition-all duration-500 ${i < loadingStep ? "border-[#4ade80]/30 bg-[#4ade80]/5" :
+                                    i === loadingStep ? "border-[#f97316]/40 bg-[#f97316]/5" :
+                                      "border-[#2a2a1e] opacity-30"
+                                  }`}>
                                 <div className="font-mono text-xs w-6 text-center">
                                   {i < loadingStep ? <span className="text-[#4ade80]">✓</span> :
-                                   i === loadingStep ? <motion.span className="text-[#f97316]" animate={{ opacity: [1,0,1] }} transition={{ duration: 0.8, repeat: Infinity }}>█</motion.span> :
-                                   <span className="text-[#3d3a2e]">○</span>}
+                                    i === loadingStep ? <motion.span className="text-[#f97316]" animate={{ opacity: [1, 0, 1] }} transition={{ duration: 0.8, repeat: Infinity }}>█</motion.span> :
+                                      <span className="text-[#3d3a2e]">○</span>}
                                 </div>
                                 <div className="flex-1">
                                   <div className={`font-mono text-xs font-bold ${i <= loadingStep ? "text-[#e8e0cc]" : "text-[#3d3a2e]"}`}>
@@ -358,8 +356,14 @@ export default function Home() {
                                 <div className="font-mono text-[10px] text-[#3d3a2e]">{analysisData.filename}</div>
                               </div>
                             </div>
-                            <ExportButton targetId="aura-export" filename={analysisData.filename}
-                              insights={analysisData.insights} chartData={analysisData.chart_data} />
+                            <ExportButton
+                              filename={analysisData.filename}
+                              insights={analysisData.insights}
+                              summary={analysisData.summary}
+                              chartData={analysisData.chart_data}
+                              forecastData={analysisData.forecast_data}
+                              analysisMetadata={analysisData.analysis_metadata}
+                            />
                           </div>
                         </div>
 

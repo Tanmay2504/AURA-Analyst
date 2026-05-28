@@ -65,22 +65,24 @@ function BootScreen({ onDone }: { onDone: () => void }) {
     >
       <div className="w-full max-w-2xl px-8 py-12 font-mono text-sm">
         <AnimatePresence>
-          {lines.map((line, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, x: -4 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.1 }}
-              className={`leading-6 ${
-                line.startsWith("[ OK ]") ? "text-[#4ade80]" :
-                line.startsWith("AURA") ? "text-[#fb923c] font-bold text-base" :
-                line.startsWith("─") ? "text-[#2a2a1e]" :
-                "text-[#7a7060]"
-              }`}
-            >
-              {line}
-            </motion.div>
-          ))}
+          {lines.map((line, i) => {
+            if (!line) return null;
+            return (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, x: -4 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.1 }}
+                className={`leading-6 ${line.startsWith("[ OK ]") ? "text-[#4ade80]" :
+                    line.startsWith("AURA") ? "text-[#fb923c] font-bold text-base" :
+                      line.startsWith("─") ? "text-[#2a2a1e]" :
+                        "text-[#7a7060]"
+                  }`}
+              >
+                {line}
+              </motion.div>
+            );
+          })}
         </AnimatePresence>
         {done && (
           <motion.div

@@ -118,7 +118,7 @@ export default function Home() {
   };
 
   const goHome = () => { setAnalysisData(null); setBatchData(null); setError(""); setShowHistory(false); setShowAnalyzer(false); window.scrollTo({ top: 0, behavior: "smooth" }); };
-  const openAnalyzer = () => { setShowAnalyzer(true); setTimeout(() => analyzerRef.current?.scrollIntoView({ behavior: "smooth" }), 80); };
+  const openAnalyzer = () => { setShowAnalyzer(true); };
 
   return (
     <div className="w-full bg-[#0a0a08]">

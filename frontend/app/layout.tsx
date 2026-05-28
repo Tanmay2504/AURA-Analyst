@@ -1,6 +1,7 @@
 import "./globals.css";
 import React from "react";
 import CustomCursor from "@/components/CustomCursor";
+import type { Viewport } from "next";
 
 export const metadata = {
   title: "AURA // Neural Analyst",
@@ -11,6 +12,13 @@ export const metadata = {
     description: "AI-powered data analysis terminal. Upload CSV. Get intelligence.",
     type: "website",
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -25,6 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="antialiased bg-[#0a0a08] text-[#e8e0cc]">
+        {/* CustomCursor hidden on touch/mobile devices via CSS */}
         <CustomCursor />
         {children}
       </body>

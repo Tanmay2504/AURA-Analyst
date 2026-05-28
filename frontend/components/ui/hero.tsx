@@ -10,7 +10,7 @@ const BOOT_LINES = [
   "─────────────────────────────────────────",
   "[ OK ] Loading kernel modules...",
   "[ OK ] Initializing AWS Bedrock runtime...",
-  "[ OK ] Claude Sonnet 3.5 model loaded",
+  "[ OK ] Claude Sonnet 4.6 model loaded",
   "[ OK ] Statistical engine ready",
   "[ OK ] Database connection established",
   "[ OK ] All systems nominal",
@@ -228,7 +228,7 @@ export default function AuraHero({ onGetStarted }: { onGetStarted?: () => void }
                   className="mb-6 font-mono text-xs text-[#7a7060] flex items-center gap-3"
                 >
                   <span className="text-[#f97316]">$</span>
-                  <span>aura --version 2.0.0 --env production --model claude-sonnet-3-5</span>
+                  <span>aura --version 2.0.0 --env production --model claude-sonnet-4-6</span>
                 </motion.div>
 
                 {/* Main headline */}
@@ -259,7 +259,7 @@ export default function AuraHero({ onGetStarted }: { onGetStarted?: () => void }
                   Upload any CSV. Three AI agents analyze, visualize, and explain your data.
                   <br />
                   <span className="text-[#f97316]">{">"}</span>{" "}
-                  Powered by AWS Bedrock · Claude Sonnet 3.5 · Production-grade.
+                  Powered by AWS Bedrock · Claude Sonnet 4.6 · Production-grade.
                 </motion.p>
 
                 {/* CTA row */}
@@ -471,7 +471,7 @@ export default function AuraHero({ onGetStarted }: { onGetStarted?: () => void }
                   AURA NEURAL ANALYST v2.0.0 · © 2026
                 </div>
                 <div className="font-mono text-xs text-[#3d3a2e]">
-                  AWS Bedrock · Claude Sonnet 3.5 · Render · Vercel
+                  AWS Bedrock · Claude Sonnet 4.6 · Render · Vercel
                 </div>
                 <div className="flex gap-4 font-mono text-xs text-[#3d3a2e]">
                   <a href="https://github.com/Tanmay2504/AURA-Analyst" target="_blank" rel="noopener noreferrer"

@@ -285,6 +285,7 @@ async def legacy_analyze(
     file: UploadFile = File(...),
     model_id: Optional[str] = Form(None),
     analysis_mode: Optional[str] = Form("standard"),
+    session_id: Optional[str] = Form(None),
 ):
     """Legacy /analyze endpoint - proxies to main.py logic using ai_service"""
     import asyncio
@@ -360,6 +361,7 @@ async def legacy_analyze(
                 agent_status=agent_status,
                 raw_csv=contents,
                 created_at=datetime.utcnow(),
+                session_id=session_id or None,
             )
             db.add(record)
             db.commit()
@@ -496,8 +498,8 @@ async def legacy_analyze_batch(
 
 
 @app.get("/history", tags=["Legacy"])
-async def legacy_history(skip: int = 0, limit: int = 50):
-    """Legacy /history endpoint"""
+async def legacy_history(skip: int = 0, limit: int = 50, session_id: Optional[str] = None):
+    """Legacy /history endpoint — filtered by session_id if provided"""
     from backend.database.session import SessionLocal
     from backend.database.models import AnalysisResult
 
@@ -520,8 +522,12 @@ async def legacy_history(skip: int = 0, limit: int = 50):
 
     db = SessionLocal()
     try:
-        records = db.query(AnalysisResult).order_by(AnalysisResult.created_at.desc()).offset(skip).limit(limit).all()
-        total = db.query(AnalysisResult).count()
+        query = db.query(AnalysisResult)
+        # Filter by session_id if provided — users only see their own history
+        if session_id:
+            query = query.filter(AnalysisResult.session_id == session_id)
+        records = query.order_by(AnalysisResult.created_at.desc()).offset(skip).limit(limit).all()
+        total = query.count()
         result_list = []
         for r in records:
             result_list.append({

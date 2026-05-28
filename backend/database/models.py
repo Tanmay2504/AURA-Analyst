@@ -18,3 +18,5 @@ class AnalysisResult(Base):
     # Optionally store the raw CSV bytes for full reproducibility
     raw_csv = Column(LargeBinary, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    # Session isolation — each browser gets a unique session_id stored in localStorage
+    session_id = Column(String, nullable=True, index=True)

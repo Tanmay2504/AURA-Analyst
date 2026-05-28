@@ -51,6 +51,17 @@ export default function Home() {
   const [mode, setMode] = useState<"quick" | "standard" | "deep">("standard");
   const analyzerRef = useRef<HTMLDivElement>(null);
 
+  // Session ID — stored in localStorage so each browser has its own history
+  const getSessionId = (): string => {
+    if (typeof window === "undefined") return "";
+    let sid = localStorage.getItem("aura_session_id");
+    if (!sid) {
+      sid = crypto.randomUUID();
+      localStorage.setItem("aura_session_id", sid);
+    }
+    return sid;
+  };
+
   useEffect(() => {
     if (!loading) { setLoadingStep(0); return; }
     setLoadingStep(0);
@@ -60,7 +71,8 @@ export default function Home() {
 
   const fetchHistory = async () => {
     try {
-      const r = await fetch(`${API}/history?limit=10`);
+      const sid = getSessionId();
+      const r = await fetch(`${API}/history?limit=10&session_id=${encodeURIComponent(sid)}`);
       if (!r.ok) throw new Error();
       const d = await r.json();
       setHistoryData(d.records || []);
@@ -78,6 +90,7 @@ export default function Home() {
     if (batch) files.forEach(f => fd.append("files", f)); else fd.append("file", files[0]);
     if (model) fd.append("model_id", model);
     fd.append("analysis_mode", mode);
+    if (!batch) fd.append("session_id", getSessionId());
     try {
       const res = await fetch(`${API}/${batch ? "analyze/batch" : "analyze"}`, { method: "POST", body: fd });
       if (!res.ok) { const e = await res.json(); throw new Error(e.detail || "Analysis failed"); }
@@ -189,8 +202,8 @@ export default function Home() {
                       {MODES.map(m => (
                         <button key={m.value} onClick={() => setMode(m.value)}
                           className={`w-full flex items-center gap-3 border p-3 text-left transition-all duration-150 ${mode === m.value
-                              ? "border-[#f97316]/60 bg-[#f97316]/5 text-[#f97316]"
-                              : "border-[#2a2a1e] text-[#7a7060] hover:border-[#f97316]/30 hover:text-[#e8e0cc]"
+                            ? "border-[#f97316]/60 bg-[#f97316]/5 text-[#f97316]"
+                            : "border-[#2a2a1e] text-[#7a7060] hover:border-[#f97316]/30 hover:text-[#e8e0cc]"
                             }`}>
                           <span className="text-base w-6 text-center">{m.icon}</span>
                           <div className="flex-1 min-w-0">
@@ -261,8 +274,8 @@ export default function Home() {
                               <motion.div key={i}
                                 initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.1 }}
                                 className={`flex items-center gap-4 border p-3 transition-all duration-500 ${i < loadingStep ? "border-[#4ade80]/30 bg-[#4ade80]/5" :
-                                    i === loadingStep ? "border-[#f97316]/40 bg-[#f97316]/5" :
-                                      "border-[#2a2a1e] opacity-30"
+                                  i === loadingStep ? "border-[#f97316]/40 bg-[#f97316]/5" :
+                                    "border-[#2a2a1e] opacity-30"
                                   }`}>
                                 <div className="font-mono text-xs w-6 text-center">
                                   {i < loadingStep ? <span className="text-[#4ade80]">✓</span> :

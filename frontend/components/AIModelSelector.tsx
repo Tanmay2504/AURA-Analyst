@@ -267,20 +267,20 @@ export function AIModelSelector({
 
       {/* Quick Comparison */}
       {!showDetails && Object.keys(models).length > 0 && (
-        <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-          <h4 className="text-sm font-semibold text-gray-300 mb-3">Quick Comparison</h4>
+        <div className="border border-[#2a2a1e] p-3">
+          <div className="font-mono text-[10px] text-[#3d3a2e] uppercase tracking-widest mb-2">// quick comparison</div>
           <div className="grid grid-cols-3 gap-2 text-xs">
-            <div className="text-center">
-              <p className="text-gray-400 mb-1">Fastest</p>
-              <p className="text-green-400 font-semibold">Claude 3 Haiku</p>
+            <div className="text-center border border-[#2a2a1e] p-2">
+              <p className="font-mono text-[10px] text-[#3d3a2e] mb-1">fastest</p>
+              <p className="font-mono text-[10px] text-[#4ade80] font-semibold">Haiku 4.5</p>
             </div>
-            <div className="text-center">
-              <p className="text-gray-400 mb-1">Best Balance</p>
-              <p className="text-blue-400 font-semibold">Claude 3 Sonnet</p>
+            <div className="text-center border border-[#f97316]/30 p-2 bg-[#f97316]/5">
+              <p className="font-mono text-[10px] text-[#3d3a2e] mb-1">recommended</p>
+              <p className="font-mono text-[10px] text-[#f97316] font-semibold">Sonnet 4.6</p>
             </div>
-            <div className="text-center">
-              <p className="text-gray-400 mb-1">Most Powerful</p>
-              <p className="text-purple-400 font-semibold">Claude 3 Opus</p>
+            <div className="text-center border border-[#2a2a1e] p-2">
+              <p className="font-mono text-[10px] text-[#3d3a2e] mb-1">most powerful</p>
+              <p className="font-mono text-[10px] text-purple-400 font-semibold">Opus 4.6</p>
             </div>
           </div>
         </div>

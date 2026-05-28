@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Download, FileText, FileSpreadsheet, FileJson, Loader2, ChevronDown } from "lucide-react";
 
 interface ExportButtonProps {
@@ -23,6 +23,31 @@ export default function ExportButton({
 }: ExportButtonProps) {
   const [loading, setLoading] = useState<"pdf" | "csv" | "json" | null>(null);
   const [open, setOpen] = useState(false);
+  const [dropdownStyle, setDropdownStyle] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
+  const btnRef = useRef<HTMLButtonElement>(null);
+
+  const openDropdown = () => {
+    if (btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setDropdownStyle({
+        top: rect.bottom + window.scrollY + 6,
+        right: window.innerWidth - rect.right,
+      });
+    }
+    setOpen((v) => !v);
+  };
+
+  // Close on scroll/resize
+  useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [open]);
 
   const baseName = filename.replace(/\.csv$/i, "");
 
@@ -406,7 +431,8 @@ export default function ExportButton({
   return (
     <div className="relative">
       <button
-        onClick={() => setOpen((v) => !v)}
+        ref={btnRef}
+        onClick={openDropdown}
         className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-600/50 rounded-xl text-sm text-slate-200 transition-colors"
       >
         {loading ? (
@@ -422,7 +448,10 @@ export default function ExportButton({
         <>
           {/* backdrop */}
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full mt-2 w-56 bg-slate-800 border border-slate-600/50 rounded-xl shadow-2xl z-50 overflow-hidden">
+          <div
+            className="fixed w-56 bg-slate-800 border border-slate-600/50 rounded-xl shadow-2xl z-50 overflow-hidden"
+            style={{ top: dropdownStyle.top, right: dropdownStyle.right }}
+          >
             {/* PDF */}
             <button
               onClick={exportPDF}

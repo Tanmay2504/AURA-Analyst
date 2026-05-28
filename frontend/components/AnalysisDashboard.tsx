@@ -216,10 +216,10 @@ export default function AnalysisDashboard({
   };
 
   // Extract key findings/insights from parsed JSON
-  const getKeyFindings = (parsed: any): Array<{title: string; detail: string; severity?: string}> => {
+  const getKeyFindings = (parsed: any): Array<{ title: string; detail: string; severity?: string }> => {
     if (!parsed) return [];
     const report = parsed.analysis_report || parsed;
-    const findings: Array<{title: string; detail: string; severity?: string}> = [];
+    const findings: Array<{ title: string; detail: string; severity?: string }> = [];
 
     // From significant_findings
     const sigFindings = report.statistical_insights?.significant_findings || report.significant_findings || [];
@@ -244,11 +244,11 @@ export default function AnalysisDashboard({
   const summaryText = parsedSummary
     ? (getSummaryText(parsedSummary) || parsedSummary?.dataset_overview?.summary || parsedSummary?.summary || '')
     : ((() => {
-        // If actualSummary looks like JSON, don't show it raw
-        const trimmed = actualSummary?.trim() || '';
-        if (trimmed.startsWith('{') || trimmed.startsWith('[') || trimmed.startsWith('```')) return '';
-        return trimmed;
-      })());
+      // If actualSummary looks like JSON, don't show it raw
+      const trimmed = actualSummary?.trim() || '';
+      if (trimmed.startsWith('{') || trimmed.startsWith('[') || trimmed.startsWith('```')) return '';
+      return trimmed;
+    })());
   const keyFindings = parsedSummary ? getKeyFindings(parsedSummary) : [];
   const parsedReport = parsedSummary?.analysis_report || parsedSummary;
 
@@ -569,10 +569,11 @@ export default function AnalysisDashboard({
                   stroke="#10b981"
                   strokeWidth={2.5}
                   dot={(props: any) => {
-                    const { cx, cy, payload } = props;
+                    const { cx, cy, payload, index } = props;
                     const isHistorical = payload.type === 'historical';
                     return (
                       <circle
+                        key={`dot-${index}`}
                         cx={cx}
                         cy={cy}
                         r={isHistorical ? 3 : 5}

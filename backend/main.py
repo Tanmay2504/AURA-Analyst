@@ -41,6 +41,14 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Database initialization failed: {e}")
 
+    # Run schema migrations (adds any missing columns to existing DBs)
+    try:
+        from backend.database.migrate import migrate
+        migrate()
+        logger.info("Database migration check complete")
+    except Exception as e:
+        logger.warning(f"Database migration failed: {e}")
+
     # Initialize services
     try:
         from backend.services.bedrock_service import get_bedrock_service
@@ -340,7 +348,7 @@ async def legacy_analyze(
                     return default
             return value
 
-        db: Session = SessionLocal()
+        db = SessionLocal()
         try:
             insights = _parse(analysis_result.get("insights", []), [])
             chart_data = _parse(analysis_result.get("chart_data", {}), {})

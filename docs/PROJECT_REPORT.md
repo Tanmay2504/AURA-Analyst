@@ -119,36 +119,58 @@ The system successfully analyzes CSV datasets of varying types and sizes, genera
   - 1.4 Proposed System
   - 1.5 Objectives
   - 1.6 Contribution of the Project
+    - 1.6.1 Market Potential
+    - 1.6.2 Innovativeness
+    - 1.6.3 Usefulness
   - 1.7 Report Organization
 - Chapter 2: Requirement Engineering
-  - 2.1 Feasibility Study
-  - 2.2 Requirement Analysis
-  - 2.3 Requirements (Functional & Non-Functional)
+  - 2.1 Feasibility Study (Technical, Economical, Operational)
+  - 2.2 Requirement Collection
+    - 2.2.1 Discussion
+    - 2.2.2 Requirement Analysis
+  - 2.3 Requirements
+    - 2.3.1 Functional Requirements
+      - 2.3.1.1 Statement of Functionality
+    - 2.3.2 Non-Functional Requirements
+      - 2.3.2.1 Statement of Functionality
   - 2.4 Hardware & Software Requirements
+    - 2.4.1 Hardware Requirement (Developer & End User)
+    - 2.4.2 Software Requirement (Developer & End User)
   - 2.5 Use-Case Diagrams
+    - 2.5.1 Use-Case Descriptions
 - Chapter 3: Analysis, Conceptual Design & Technical Architecture
   - 3.1 Technical Architecture
   - 3.2 Sequence Diagrams
   - 3.3 Class Diagrams
   - 3.4 Data Flow Diagrams (DFD)
   - 3.5 User Interface Design
-  - 3.6 Data Design & ER Diagram
+  - 3.6 Data Design
+    - 3.6.1 Current Implementation
+    - 3.6.2 E-R Diagram
+    - 3.6.3 Activity Diagram
 - Chapter 4: Implementation & Testing
   - 4.1 Methodology
+    - 4.1.1 Proposed Algorithm
   - 4.2 Implementation Approach
+    - 4.2.1 Introduction to Languages, IDEs, Tools and Technologies
   - 4.3 Testing Approaches
+    - 4.3.1 Unit Testing
+      - a. Test Cases
+    - 4.3.2 Integration Testing
+      - b. Test Cases
 - Chapter 5: Results & Discussion
   - 5.1 User Interface Representation
-  - 5.2 Snapshots of System
+    - 5.1.1 Brief Description of Various Modules
+  - 5.2 Snapshots of System with Brief Description
   - 5.3 Final Findings
 - Chapter 6: Conclusion & Future Scope
   - 6.1 Conclusion
   - 6.2 Future Scope
 - References
 - Appendix A: Project Synopsis
-- Appendix B: Guide Interaction Report
+- Appendix B: Guide Interaction Report (External and Internal Mentor Log Book)
 - Appendix C: User Manual
-- Appendix D: Git/GitHub Version History
+- Appendix D: Git/GitHub Commits/Version History
 
 ---
 
@@ -285,9 +307,27 @@ Development costs are minimal. The system uses open-source libraries, free-tier 
 **Operational Feasibility:**
 The system is web-based, requiring no installation for end users. The backend is deployable on Render (free tier) and the frontend on Vercel (free tier), ensuring high accessibility and low maintenance overhead.
 
-### 2.2 Requirement Analysis
+### 2.2 Requirement Collection
+
+#### 2.2.1 Discussion
+
+We conducted structured discussions with three user groups to understand their data analysis needs:
+
+- **Students & Researchers:** Need quick statistical summaries and visualizations for academic datasets (grades, survey results, experimental data). Primary pain point: lack of Python/R skills.
+- **Small Business Owners:** Need sales trend analysis and short-term forecasting without BI tool licenses. Primary pain point: cost and complexity of existing tools.
+- **Data Analysts:** Need a rapid prototyping tool for initial EDA before deeper analysis. Primary pain point: time spent on boilerplate profiling code.
+
+Key discussion findings:
+1. All user groups prioritize **speed** — they want insights in under 10 seconds.
+2. **Natural language summaries** are valued more than raw statistics.
+3. **Forecasting** is a high-demand feature, especially for time-series business data.
+4. **Export capability** is essential for academic and professional reporting.
+
+#### 2.2.2 Requirement Analysis
 
 We analyzed the workflows of data analysts, researchers, and business users to identify the most time-consuming steps in exploratory data analysis. The key finding was that **narrative generation** — translating numbers into human-readable insights — is the most valuable and time-consuming step. Our system automates this specifically using LLMs.
+
+Secondary analysis revealed that **column-level deep-dive** statistics (distributions, outliers, top values) are frequently needed but require manual Pandas code in existing workflows. The ColumnAnalysisPanel component directly addresses this gap.
 
 ### 2.3 Requirements
 
@@ -626,6 +666,72 @@ One AnalysisRecord → Many Q&A interactions (in-memory per session)
 One AnalysisRecord → One ForecastResult (embedded in forecast_data JSON)
 ```
 
+#### 3.6.3 Activity Diagram
+
+The Activity Diagram illustrates the end-to-end workflow of the AURA Analyst system from the user's perspective, showing decision points and parallel activities:
+
+```
+[User Opens Browser]
+        │
+        ▼
+[Landing Page Loads]
+        │
+        ▼
+[User Clicks "Start Analyzing"]
+        │
+        ▼
+[Analyzer Panel Displayed]
+        │
+        ├──────────────────────────────────────────┐
+        ▼                                          ▼
+[Single CSV Upload]                    [Multiple CSV Upload]
+        │                                          │
+        ▼                                          ▼
+[Select AI Model (optional)]           [Select AI Model (optional)]
+        │                                          │
+        ▼                                          ▼
+[Click Analyze Button]                 [Click Analyze Button]
+        │                                          │
+        ▼                                          ▼
+[Backend: Validate CSV]                [Backend: Validate all CSVs]
+        │                                          │
+   [Valid?]                                   [Valid?]
+   ├── NO → [Show Error]                      ├── NO → [Show Error]
+   └── YES ▼                                  └── YES ▼
+[Profile Dataset]                      [Profile each Dataset]
+        │                                          │
+[Classify Context]                     [Classify each Context]
+        │                                          │
+[Call AI Engine]                       [Call AI Engine per file]
+        │                                          │
+[Is time_series?]                      [Call AI for cross-file comparison]
+├── YES → [Run SARIMAX/ES]                         │
+└── NO  → [Skip forecast]              [Aggregate all results]
+        │                                          │
+        └──────────────┬───────────────────────────┘
+                       ▼
+              [Store in SQLite]
+                       │
+                       ▼
+              [Return JSON to Frontend]
+                       │
+                       ▼
+              [Render AnalysisDashboard]
+                       │
+        ┌──────────────┼──────────────┐
+        ▼              ▼              ▼
+[View Summary]  [Ask Q&A]   [Column Deep-Dive]
+        │              │              │
+        └──────────────┼──────────────┘
+                       ▼
+              [Export Results?]
+              ├── YES → [Download PDF/CSV/JSON]
+              └── NO  → [View History]
+                       │
+                       ▼
+                    [END]
+```
+
 ---
 
 ## Chapter 4: Implementation & Testing
@@ -702,7 +808,63 @@ END
 
 ### 4.2 Implementation Approach
 
-#### 4.2.1 Backend (FastAPI + Python)
+#### 4.2.1 Introduction to Languages, IDEs, Tools and Technologies
+
+**Programming Languages:**
+
+| Language | Version | Usage |
+|---|---|---|
+| Python | 3.11+ | Backend logic, data processing, AI integration, forecasting |
+| TypeScript | 5.x | Frontend components, type-safe React development |
+| SQL | SQLite dialect | Database queries via SQLAlchemy ORM |
+
+**Backend Frameworks & Libraries:**
+
+| Tool | Version | Purpose |
+|---|---|---|
+| FastAPI | 0.110+ | High-performance async REST API framework |
+| Uvicorn | 0.29+ | ASGI server for running FastAPI |
+| Pandas | 2.x | CSV parsing, data profiling, statistical computation |
+| NumPy | 1.26+ | Numerical operations, array processing |
+| statsmodels | 0.14+ | SARIMAX and Exponential Smoothing forecasting |
+| SQLAlchemy | 2.x | ORM for SQLite database operations |
+| Pydantic | 2.x | Request/response validation and serialization |
+| boto3 | 1.34+ | AWS SDK for Bedrock Claude API calls |
+| google-generativeai | 0.5+ | Google Gemini API client |
+
+**Frontend Frameworks & Libraries:**
+
+| Tool | Version | Purpose |
+|---|---|---|
+| Next.js | 14.x | React framework with SSR/SSG support |
+| React | 18.x | Component-based UI library |
+| Tailwind CSS | 3.x | Utility-first CSS framework for styling |
+| Recharts | 2.x | Composable charting library for bar/line charts |
+| Framer Motion | 11.x | Animation library for hero section transitions |
+| Lucide React | 0.4+ | Icon library for UI elements |
+
+**Development Tools & IDEs:**
+
+| Tool | Purpose |
+|---|---|
+| Antigravity IDE | Primary development environment |
+| Git + GitHub | Version control and remote repository |
+| Postman / FastAPI Docs | API testing and documentation |
+| Node.js (npm) | Frontend package management |
+| pip / venv | Python package management and virtual environments |
+| Docker | Containerization for deployment |
+
+**Cloud & Deployment Platforms:**
+
+| Platform | Purpose |
+|---|---|
+| AWS Bedrock | Claude Sonnet 4.6 / Haiku 4.5 / Opus 4.6 AI inference |
+| Google AI Studio | Gemini API access |
+| Render | Backend deployment (free tier) |
+| Vercel | Frontend deployment (free tier) |
+| SQLite | Local development database |
+
+**Backend Implementation Details:**
 
 **Dataset Profiling:**
 ```python
@@ -800,6 +962,36 @@ The AURA Analyst interface is designed for simplicity and clarity. The terminal-
 4. **NLQueryChat Component:** Terminal-style chat with `>` for user messages (amber border) and `$` for AI responses (dark border). Suggested query chips for quick access.
 
 5. **ColumnAnalysisPanel Component:** Column selector dropdown with amber left-border on selection. Stats grid shows dtype, total, missing (red if > 0), unique. Histogram uses amber bars.
+
+#### 5.1.1 Brief Description of Various Modules
+
+The AURA Analyst system is composed of the following key modules, each with a distinct responsibility:
+
+| Module | File | Role |
+|---|---|---|
+| **Landing Page (Hero)** | `frontend/components/ui/hero.tsx` | Animated terminal boot sequence, CTA buttons, feature highlights, system status indicators |
+| **Main Route** | `frontend/app/page.tsx` | Coordinates analyzer visibility, manages analysis state, routes between landing and analyzer |
+| **File Upload** | `frontend/components/FileUpload.tsx` | Drag-and-drop CSV upload zone, file validation, single/multi-file support, analyze button |
+| **AI Model Selector** | `frontend/components/AIModelSelector.tsx` | Terminal-style model dropdown, speed/quality/cost badges, quick comparison grid |
+| **Analysis Dashboard** | `frontend/components/AnalysisDashboard.tsx` | Renders executive summary, key insights, dataset overview, data quality, statistical insights, bar chart, forecast chart, stats footer |
+| **NL Query Chat** | `frontend/components/NLQueryChat.tsx` | Terminal-style conversational Q&A interface, suggested queries, message history, AI response rendering |
+| **Column Analysis Panel** | `frontend/components/ColumnAnalysisPanel.tsx` | Per-column deep-dive: stats grid, distribution histogram (numeric), top-values table (categorical) |
+| **Export Button** | `frontend/components/ExportButton.tsx` | PDF/CSV/JSON export with portal-positioned dropdown |
+| **FastAPI Backend** | `backend/main.py` | All REST API routes: /analyze, /analyze/batch, /history, /analysis/{id}, /query/{id}, /column/{id}/{col}, /health |
+| **AI Service** | `backend/services/gemini_service.py` | Dataset profiling, context classification, Gemini/Claude prompt engineering, forecast generation |
+| **Database Models** | `backend/database/models.py` | SQLAlchemy AnalysisRecord model with all fields |
+| **Database Session** | `backend/database/session.py` | SQLite connection setup and session management |
+
+**Module Interaction Summary:**
+
+1. `hero.tsx` → triggers navigation to analyzer via `page.tsx`
+2. `page.tsx` → renders `FileUpload` + `AIModelSelector` in sidebar
+3. `FileUpload` → POSTs to `/analyze` → receives JSON → passes to `page.tsx` state
+4. `page.tsx` → passes analysis result to `AnalysisDashboard`
+5. `AnalysisDashboard` → renders all result sections conditionally
+6. `NLQueryChat` → POSTs questions to `/query/{id}` → renders AI answers
+7. `ColumnAnalysisPanel` → GETs `/column/{id}/{col}` → renders per-column stats
+8. `ExportButton` → reads current analysis state → generates PDF/CSV/JSON
 
 ### 5.2 Snapshots of System
 

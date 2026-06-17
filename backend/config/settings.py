@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     ]
     
     # Database
-    DATABASE_URL: str = "sqlite:///./aura_analyst.db"
+    DATABASE_URL: str = "sqlite:///./sql_app.db"
     DB_POOL_SIZE: int = 10
     DB_MAX_OVERFLOW: int = 20
     

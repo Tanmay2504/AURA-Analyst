@@ -102,7 +102,7 @@ export default function Home() {
         setAnalysisData(single);
         try { const cr = await fetch(`${API}/columns/${single.id}`); if (cr.ok) { const cd = await cr.json(); setColumns(cd.columns || []); } } catch { /* ok */ }
       }
-      try { const hr = await fetch(`${API}/history?limit=10`); if (hr.ok) { const hd = await hr.json(); setHistoryData(hd.records || []); } } catch { /* ok */ }
+      try { const sid = getSessionId(); const hr = await fetch(`${API}/history?limit=10&session_id=${encodeURIComponent(sid)}`); if (hr.ok) { const hd = await hr.json(); setHistoryData(hd.records || []); } } catch { /* ok */ }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unexpected error");
     } finally { setLoading(false); }
@@ -112,7 +112,14 @@ export default function Home() {
     try {
       const r = await fetch(`${API}/analysis/${id}`);
       if (!r.ok) throw new Error();
-      setAnalysisData(await r.json());
+      const data = await r.json();
+      setAnalysisData(data);
+      setColumns([]);
+      // Also fetch columns for this historical analysis
+      try {
+        const cr = await fetch(`${API}/columns/${id}`);
+        if (cr.ok) { const cd = await cr.json(); setColumns(cd.columns || []); }
+      } catch { /* ok, columns will fall back to metadata */ }
       setShowHistory(false);
     } catch { setError("Could not load record"); }
   };

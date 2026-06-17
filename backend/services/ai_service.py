@@ -21,9 +21,17 @@ logger = logging.getLogger(__name__)
 try:
 	from backend.services.bedrock_service import get_bedrock_service
 	from backend.config.settings import settings
-	_USE_BEDROCK = bool(settings.AWS_ACCESS_KEY_ID and settings.AWS_SECRET_ACCESS_KEY)
+	# Evaluate lazily at call time so Render env vars are fully loaded
+	def _check_bedrock() -> bool:
+		try:
+			return bool(settings.AWS_ACCESS_KEY_ID and settings.AWS_SECRET_ACCESS_KEY)
+		except Exception:
+			return False
+	_USE_BEDROCK = _check_bedrock()
 except Exception:
 	_USE_BEDROCK = False
+	def _check_bedrock() -> bool:
+		return False
 
 
 # max_tokens per analysis mode
@@ -41,7 +49,8 @@ def analyze_data_with_gemini(df, model_id: str | None = None, analysis_mode: str
 	- If Bedrock is not configured, or if the Bedrock call fails, this function raises
 	  an `AIServiceError` so the API surfaces the exact Bedrock error to the client.
 	"""
-	if not _USE_BEDROCK:
+	# Re-check at call time in case env vars were loaded after module import (Render cold start)
+	if not _check_bedrock():
 		raise AIServiceError(
 			"AWS Bedrock is required for analysis. Set AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and BEDROCK_MODEL_ID in the environment."
 		)

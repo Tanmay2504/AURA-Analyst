@@ -16,7 +16,7 @@ services:
       - key: BEDROCK_MODEL_ID
         value: arn:aws:bedrock:us-east-1:699038657654:inference-profile/us.anthropic.claude-sonnet-4-6
       - key: DATABASE_URL
-        value: sqlite:///./aura_analyst.db
+        value: sqlite:///./sql_app.db
       - key: SECRET_KEY
         generateValue: true
       - key: ADMIN_PASSWORD
